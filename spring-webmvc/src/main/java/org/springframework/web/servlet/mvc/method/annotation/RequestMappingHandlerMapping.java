@@ -78,19 +78,11 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	}
 
 	/**
-	 * Whether to use suffix pattern match for registered file extensions only
-	 * when matching patterns to requests.
-	 * <p>If enabled, a controller method mapped to "/users" also matches to
-	 * "/users.json" assuming ".json" is a file extension registered with the
-	 * provided {@link #setContentNegotiationManager(ContentNegotiationManager)
-	 * contentNegotiationManager}. This can be useful for allowing only specific
-	 * URL extensions to be used as well as in cases where a "." in the URL path
-	 * can lead to ambiguous interpretation of path variable content, (e.g. given
-	 * "/users/{user}" and incoming URLs such as "/users/john.j.joe" and
-	 * "/users/john.j.joe.json").
-	 * <p>If enabled, this flag also enables
-	 * {@link #setUseSuffixPatternMatch(boolean) useSuffixPatternMatch}. The
-	 * default value is {@code false}.
+	 * Whether suffix pattern matching should work only against path extensions
+	 * explicitly registered with the {@link ContentNegotiationManager}. This
+	 * is generally recommended to reduce ambiguity and to avoid issues such as
+	 * when a "." appears in the path for other reasons.
+	 * <p>By default this is set to "false".
 	 */
 	public void setUseRegisteredSuffixPatternMatch(boolean useRegisteredSuffixPatternMatch) {
 		this.useRegisteredSuffixPatternMatch = useRegisteredSuffixPatternMatch;
@@ -122,7 +114,6 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 
 	@Override
 	public void afterPropertiesSet() {
-
 		this.config = new RequestMappingInfo.BuilderConfiguration();
 		this.config.setPathHelper(getUrlPathHelper());
 		this.config.setPathMatcher(getPathMatcher());
@@ -133,6 +124,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 
 		super.afterPropertiesSet();
 	}
+
 
 	/**
 	 * Whether to use suffix pattern matching.
@@ -204,15 +196,13 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 * Delegates to {@link #createRequestMappingInfo(RequestMapping, RequestCondition)},
 	 * supplying the appropriate custom {@link RequestCondition} depending on whether
 	 * the supplied {@code annotatedElement} is a class or method.
-	 *
 	 * @see #getCustomTypeCondition(Class)
 	 * @see #getCustomMethodCondition(Method)
 	 */
 	private RequestMappingInfo createRequestMappingInfo(AnnotatedElement element) {
 		RequestMapping requestMapping = AnnotatedElementUtils.findMergedAnnotation(element, RequestMapping.class);
 		RequestCondition<?> condition = (element instanceof Class<?> ?
-				getCustomTypeCondition((Class<?>) element) :
-				getCustomMethodCondition((Method) element));
+				getCustomTypeCondition((Class<?>) element) : getCustomMethodCondition((Method) element));
 		return (requestMapping != null ? createRequestMappingInfo(requestMapping, condition) : null);
 	}
 
@@ -252,8 +242,8 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 * a directly declared annotation, a meta-annotation, or the synthesized
 	 * result of merging annotation attributes within an annotation hierarchy.
 	 */
-	protected RequestMappingInfo createRequestMappingInfo(RequestMapping requestMapping,
-			RequestCondition<?> customCondition) {
+	protected RequestMappingInfo createRequestMappingInfo(
+			RequestMapping requestMapping, RequestCondition<?> customCondition) {
 
 		return RequestMappingInfo
 				.paths(resolveEmbeddedValuesInPatterns(requestMapping.path()))
@@ -288,8 +278,8 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	@Override
 	protected CorsConfiguration initCorsConfiguration(Object handler, Method method, RequestMappingInfo mappingInfo) {
 		HandlerMethod handlerMethod = createHandlerMethod(handler, method);
-		CrossOrigin typeAnnotation = AnnotationUtils.findAnnotation(handlerMethod.getBeanType(), CrossOrigin.class);
-		CrossOrigin methodAnnotation = AnnotationUtils.findAnnotation(method, CrossOrigin.class);
+		CrossOrigin typeAnnotation = AnnotatedElementUtils.findMergedAnnotation(handlerMethod.getBeanType(), CrossOrigin.class);
+		CrossOrigin methodAnnotation = AnnotatedElementUtils.findMergedAnnotation(method, CrossOrigin.class);
 
 		if (typeAnnotation == null && methodAnnotation == null) {
 			return null;
@@ -300,7 +290,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		updateCorsConfig(config, methodAnnotation);
 
 		if (CollectionUtils.isEmpty(config.getAllowedOrigins())) {
-			config.setAllowedOrigins(Arrays.asList(CrossOrigin.DEFAULT_ORIGIN));
+			config.setAllowedOrigins(Arrays.asList(CrossOrigin.DEFAULT_ORIGINS));
 		}
 		if (CollectionUtils.isEmpty(config.getAllowedMethods())) {
 			for (RequestMethod allowedMethod : mappingInfo.getMethodsCondition().getMethods()) {
@@ -348,7 +338,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 					+ "or an empty string (\"\"); current value is [" + allowCredentials + "].");
 		}
 
-		if ((annotation.maxAge() >= 0) && (config.getMaxAge() == null)) {
+		if (annotation.maxAge() >= 0 && config.getMaxAge() == null) {
 			config.setMaxAge(annotation.maxAge());
 		}
 	}

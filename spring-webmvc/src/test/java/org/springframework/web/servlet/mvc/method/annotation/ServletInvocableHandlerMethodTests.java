@@ -16,19 +16,18 @@
 
 package org.springframework.web.servlet.mvc.method.annotation;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
-
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 import javax.servlet.http.HttpServletResponse;
 
 import org.junit.Test;
 
 import org.springframework.core.MethodParameter;
+import org.springframework.core.annotation.AliasFor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -49,6 +48,9 @@ import org.springframework.web.method.support.HandlerMethodReturnValueHandlerCom
 import org.springframework.web.method.support.ModelAndViewContainer;
 import org.springframework.web.servlet.view.RedirectView;
 
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
+
 /**
  * Test fixture with {@link ServletInvocableHandlerMethod}.
  *
@@ -63,7 +65,7 @@ public class ServletInvocableHandlerMethodTests {
 
 	private final ModelAndViewContainer mavContainer = new ModelAndViewContainer();
 
-	private final MockHttpServletRequest request = new MockHttpServletRequest();
+	private final MockHttpServletRequest request = new MockHttpServletRequest("GET", "/");
 
 	private final MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -76,6 +78,16 @@ public class ServletInvocableHandlerMethodTests {
 		handlerMethod.invokeAndHandle(this.webRequest, this.mavContainer);
 
 		assertTrue("Null return value + @ResponseStatus should result in 'request handled'",
+				this.mavContainer.isRequestHandled());
+		assertEquals(HttpStatus.BAD_REQUEST.value(), this.response.getStatus());
+	}
+
+	@Test
+	public void invokeAndHandle_VoidWithComposedResponseStatus() throws Exception {
+		ServletInvocableHandlerMethod handlerMethod = getHandlerMethod(new Handler(), "composedResponseStatus");
+		handlerMethod.invokeAndHandle(this.webRequest, this.mavContainer);
+
+		assertTrue("Null return value + @ComposedResponseStatus should result in 'request handled'",
 				this.mavContainer.isRequestHandled());
 		assertEquals(HttpStatus.BAD_REQUEST.value(), this.response.getStatus());
 	}
@@ -260,6 +272,13 @@ public class ServletInvocableHandlerMethodTests {
 		return handlerMethod;
 	}
 
+	@ResponseStatus
+	@Retention(RetentionPolicy.RUNTIME)
+	@interface ComposedResponseStatus {
+
+		@AliasFor(annotation = ResponseStatus.class, attribute = "code")
+		HttpStatus responseStatus() default HttpStatus.INTERNAL_SERVER_ERROR;
+	}
 
 	@SuppressWarnings("unused")
 	private static class Handler {
@@ -275,6 +294,10 @@ public class ServletInvocableHandlerMethodTests {
 		@ResponseStatus(code = HttpStatus.BAD_REQUEST, reason = "400 Bad Request")
 		public String responseStatusWithReason() {
 			return "foo";
+		}
+
+		@ComposedResponseStatus(responseStatus = HttpStatus.BAD_REQUEST)
+		public void composedResponseStatus() {
 		}
 
 		public void httpServletResponse(HttpServletResponse response) {

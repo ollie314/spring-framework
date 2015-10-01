@@ -389,7 +389,7 @@ public class ResolvableType implements Serializable {
 	 * implement or extend the specified class.
 	 * @param type the required class type
 	 * @return a {@link ResolvableType} representing this object as the specified
-	 * type or {@link #NONE}
+	 * type, or {@link #NONE} if not resolvable as that type
 	 * @see #asCollection()
 	 * @see #asMap()
 	 * @see #getSuperType()
@@ -994,6 +994,7 @@ public class ResolvableType implements Serializable {
 	 * the {@link #forClass(Class) Class instance}.
 	 * @param instance the instance
 	 * @return a {@link ResolvableType} for the specified instance
+	 * @since 4.2
 	 * @see ResolvableTypeProvider
 	 */
 	public static ResolvableType forInstance(Object instance) {

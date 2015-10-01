@@ -60,6 +60,11 @@ import org.springframework.web.util.UriTemplateHandler;
  * It handles HTTP connections, leaving application code to provide URLs
  * (with possible template variables) and extract results.
  *
+ * <p><strong>Note:</strong> by default the RestTemplate relies on standard JDK
+ * facilities to establish HTTP connections. You can switch to use a different
+ * HTTP library such as Apache HttpComponents, Netty, and OkHttp through the
+ * {@link #setRequestFactory} property.
+ *
  * <p>The main entry points of this template are the methods named after the six main HTTP methods:
  * <table>
  * <tr><th>HTTP method</th><th>RestTemplate methods</th></tr>
@@ -156,12 +161,14 @@ public class RestTemplate extends InterceptingHttpAccessor implements RestOperat
 			this.messageConverters.add(new AtomFeedHttpMessageConverter());
 			this.messageConverters.add(new RssChannelHttpMessageConverter());
 		}
+
 		if (jackson2XmlPresent) {
-			messageConverters.add(new MappingJackson2XmlHttpMessageConverter());
+			this.messageConverters.add(new MappingJackson2XmlHttpMessageConverter());
 		}
 		else if (jaxb2Present) {
 			this.messageConverters.add(new Jaxb2RootElementHttpMessageConverter());
 		}
+
 		if (jackson2Present) {
 			this.messageConverters.add(new MappingJackson2HttpMessageConverter());
 		}
@@ -188,7 +195,7 @@ public class RestTemplate extends InterceptingHttpAccessor implements RestOperat
 	 * @since 3.2.7
 	 */
 	public RestTemplate(List<HttpMessageConverter<?>> messageConverters) {
-		Assert.notEmpty(messageConverters, "'messageConverters' must not be empty");
+		Assert.notEmpty(messageConverters, "At least one HttpMessageConverter required");
 		this.messageConverters.addAll(messageConverters);
 	}
 
@@ -198,7 +205,7 @@ public class RestTemplate extends InterceptingHttpAccessor implements RestOperat
 	 * <p>These converters are used to convert from and to HTTP requests and responses.
 	 */
 	public void setMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
-		Assert.notEmpty(messageConverters, "'messageConverters' must not be empty");
+		Assert.notEmpty(messageConverters, "At least one HttpMessageConverter required");
 		// Take getMessageConverters() List as-is when passed in here
 		if (this.messageConverters != messageConverters) {
 			this.messageConverters.clear();
@@ -218,7 +225,7 @@ public class RestTemplate extends InterceptingHttpAccessor implements RestOperat
 	 * <p>By default, RestTemplate uses a {@link DefaultResponseErrorHandler}.
 	 */
 	public void setErrorHandler(ResponseErrorHandler errorHandler) {
-		Assert.notNull(errorHandler, "'errorHandler' must not be null");
+		Assert.notNull(errorHandler, "ResponseErrorHandler must not be null");
 		this.errorHandler = errorHandler;
 	}
 
@@ -235,7 +242,7 @@ public class RestTemplate extends InterceptingHttpAccessor implements RestOperat
 	 * @param handler the URI template handler to use
 	 */
 	public void setUriTemplateHandler(UriTemplateHandler handler) {
-		Assert.notNull(handler, "'uriTemplateHandler' is required.");
+		Assert.notNull(handler, "UriTemplateHandler must not be null");
 		this.uriTemplateHandler = handler;
 	}
 

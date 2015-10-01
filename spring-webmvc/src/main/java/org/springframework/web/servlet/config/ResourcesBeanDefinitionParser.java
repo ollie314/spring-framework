@@ -116,8 +116,8 @@ class ResourcesBeanDefinitionParser implements BeanDefinitionParser {
 		// Use a default of near-lowest precedence, still allowing for even lower precedence in other mappings
 		handlerMappingDef.getPropertyValues().add("order", StringUtils.hasText(order) ? order : Ordered.LOWEST_PRECEDENCE - 1);
 
-		RuntimeBeanReference corsConfigurationRef = MvcNamespaceUtils.registerCorsConfiguration(null, parserContext, source);
-		handlerMappingDef.getPropertyValues().add("corsConfiguration", corsConfigurationRef);
+		RuntimeBeanReference corsConfigurationsRef = MvcNamespaceUtils.registerCorsConfigurations(null, parserContext, source);
+		handlerMappingDef.getPropertyValues().add("corsConfigurations", corsConfigurationsRef);
 
 		String beanName = parserContext.getReaderContext().generateBeanName(handlerMappingDef);
 		parserContext.getRegistry().registerBeanDefinition(beanName, handlerMappingDef);
@@ -172,7 +172,7 @@ class ResourcesBeanDefinitionParser implements BeanDefinitionParser {
 			resourceHandlerDef.getPropertyValues().add("cacheSeconds", cacheSeconds);
 		}
 
-		Element cacheControlElement = DomUtils.getChildElementByTagName(element, "cachecontrol");
+		Element cacheControlElement = DomUtils.getChildElementByTagName(element, "cache-control");
 		if (cacheControlElement != null) {
 			CacheControl cacheControl = parseCacheControl(cacheControlElement);
 			resourceHandlerDef.getPropertyValues().add("cacheControl", cacheControl);
@@ -310,7 +310,7 @@ class ResourcesBeanDefinitionParser implements BeanDefinitionParser {
 		}
 
 		if (isAutoRegistration) {
-			if(isWebJarsAssetLocatorPresent) {
+			if (isWebJarsAssetLocatorPresent) {
 				RootBeanDefinition webJarsResolverDef = new RootBeanDefinition(WebJarsResourceResolver.class);
 				webJarsResolverDef.setSource(source);
 				webJarsResolverDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);

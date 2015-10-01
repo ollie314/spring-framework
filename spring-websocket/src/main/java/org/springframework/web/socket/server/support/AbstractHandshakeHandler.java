@@ -65,20 +65,25 @@ public abstract class AbstractHandshakeHandler implements HandshakeHandler, Life
 	private static final Charset UTF8_CHARSET = Charset.forName("UTF-8");
 
 
+	private static final ClassLoader classLoader = AbstractHandshakeHandler.class.getClassLoader();
+
 	private static final boolean jettyWsPresent = ClassUtils.isPresent(
-			"org.eclipse.jetty.websocket.server.WebSocketServerFactory", AbstractHandshakeHandler.class.getClassLoader());
+			"org.eclipse.jetty.websocket.server.WebSocketServerFactory", classLoader);
 
 	private static final boolean tomcatWsPresent = ClassUtils.isPresent(
-			"org.apache.tomcat.websocket.server.WsHttpUpgradeHandler", AbstractHandshakeHandler.class.getClassLoader());
+			"org.apache.tomcat.websocket.server.WsHttpUpgradeHandler", classLoader);
 
 	private static final boolean undertowWsPresent = ClassUtils.isPresent(
-			"io.undertow.websockets.jsr.ServerWebSocketContainer", AbstractHandshakeHandler.class.getClassLoader());
+			"io.undertow.websockets.jsr.ServerWebSocketContainer", classLoader);
 
-	private static final boolean glassFishWsPresent = ClassUtils.isPresent(
-			"org.glassfish.tyrus.servlet.TyrusHttpUpgradeHandler", AbstractHandshakeHandler.class.getClassLoader());
+	private static final boolean glassfishWsPresent = ClassUtils.isPresent(
+			"org.glassfish.tyrus.servlet.TyrusHttpUpgradeHandler", classLoader);
 
-	private static final boolean webLogicWsPresent = ClassUtils.isPresent(
-			"weblogic.websocket.tyrus.TyrusServletWriter", AbstractHandshakeHandler.class.getClassLoader());
+	private static final boolean weblogicWsPresent = ClassUtils.isPresent(
+			"weblogic.websocket.tyrus.TyrusServletWriter", classLoader);
+
+	private static final boolean websphereWsPresent = ClassUtils.isPresent(
+			"com.ibm.websphere.wsoc.WsWsocServerContainer", classLoader);
 
 
 	protected final Log logger = LogFactory.getLog(getClass());
@@ -120,21 +125,25 @@ public abstract class AbstractHandshakeHandler implements HandshakeHandler, Life
 		else if (undertowWsPresent) {
 			className = "org.springframework.web.socket.server.standard.UndertowRequestUpgradeStrategy";
 		}
-		else if (glassFishWsPresent) {
+		else if (glassfishWsPresent) {
 			className = "org.springframework.web.socket.server.standard.GlassFishRequestUpgradeStrategy";
 		}
-		else if (webLogicWsPresent) {
+		else if (weblogicWsPresent) {
 			className = "org.springframework.web.socket.server.standard.WebLogicRequestUpgradeStrategy";
+		}
+		else if (websphereWsPresent) {
+			className = "org.springframework.web.socket.server.standard.WebSphereRequestUpgradeStrategy";
 		}
 		else {
 			throw new IllegalStateException("No suitable default RequestUpgradeStrategy found");
 		}
 		try {
-			Class<?> clazz = ClassUtils.forName(className, AbstractHandshakeHandler.class.getClassLoader());
+			Class<?> clazz = ClassUtils.forName(className, classLoader);
 			return (RequestUpgradeStrategy) clazz.newInstance();
 		}
 		catch (Throwable ex) {
-			throw new IllegalStateException("Failed to instantiate RequestUpgradeStrategy: " + className, ex);
+			throw new IllegalStateException(
+					"Failed to instantiate RequestUpgradeStrategy: " + className, ex);
 		}
 	}
 
@@ -359,7 +368,7 @@ public abstract class AbstractHandshakeHandler implements HandshakeHandler, Life
 
 	/**
 	 * Filter the list of requested WebSocket extensions.
-	 * <p>As of 4.1 the default implementation of this method filters the list to
+	 * <p>As of 4.1, the default implementation of this method filters the list to
 	 * leave only extensions that are both requested and supported.
 	 * @param request the current request
 	 * @param requestedExtensions the list of extensions requested by the client

@@ -39,9 +39,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpRange;
 import org.springframework.http.MediaType;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.http.server.ServletServerHttpRequest;
-import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.CollectionUtils;
@@ -52,6 +50,8 @@ import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.HttpRequestHandler;
 import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.support.WebContentGenerator;
 
@@ -89,11 +89,11 @@ import org.springframework.web.servlet.support.WebContentGenerator;
  * @author Jeremy Grelle
  * @author Juergen Hoeller
  * @author Arjen Poutsma
+ * @author Brian Clozel
  * @since 3.0.4
  */
-public class ResourceHttpRequestHandler extends WebContentGenerator implements HttpRequestHandler, InitializingBean, CorsConfigurationSource {
-
-	private static final String CONTENT_ENCODING = "Content-Encoding";
+public class ResourceHttpRequestHandler extends WebContentGenerator
+		implements HttpRequestHandler, InitializingBean, CorsConfigurationSource {
 
 	private static final Log logger = LogFactory.getLog(ResourceHttpRequestHandler.class);
 
@@ -172,17 +172,18 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 	}
 
 	@Override
+	public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
+		return this.corsConfiguration;
+	}
+
+
+	@Override
 	public void afterPropertiesSet() throws Exception {
 		if (logger.isWarnEnabled() && CollectionUtils.isEmpty(this.locations)) {
 			logger.warn("Locations list is empty. No resources will be served unless a " +
 					"custom ResourceResolver is configured as an alternative to PathResourceResolver.");
 		}
 		initAllowedLocations();
-	}
-
-	@Override
-	public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
-		return corsConfiguration;
 	}
 
 	/**
@@ -207,6 +208,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 		}
 	}
 
+
 	/**
 	 * Processes a resource request.
 	 * <p>Checks for the existence of the requested resource in the configured list of locations.
@@ -223,9 +225,10 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 	public void handleRequest(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 
-		checkAndPrepare(request, response);
+		// Supported methods and required session
+		checkRequest(request);
 
-		// check whether a matching resource exists
+		// Check whether a matching resource exists
 		Resource resource = getResource(request);
 		if (resource == null) {
 			logger.trace("No matching resource found - returning 404");
@@ -233,13 +236,16 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 			return;
 		}
 
-		// header phase
+		// Header phase
 		if (new ServletWebRequest(request, response).checkNotModified(resource.lastModified())) {
 			logger.trace("Resource not modified - returning 304");
 			return;
 		}
 
-		// check the resource's media type
+		// Apply cache settings, if any
+		prepareResponse(response);
+
+		// Check the resource's media type
 		MediaType mediaType = getMediaType(resource);
 		if (mediaType != null) {
 			if (logger.isTraceEnabled()) {
@@ -252,7 +258,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 			}
 		}
 
-		// content phase
+		// Content phase
 		if (METHOD_HEAD.equals(request.getMethod())) {
 			setHeaders(response, resource, mediaType);
 			logger.trace("HEAD request - skipping content");
@@ -260,6 +266,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 		}
 
 		if (request.getHeader(HttpHeaders.RANGE) == null) {
+			setETagHeader(request, response);
 			setHeaders(response, resource, mediaType);
 			writeContent(response, resource);
 		}
@@ -400,6 +407,21 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 	}
 
 	/**
+	 * Set the ETag header if the version string of the served resource is present.
+	 * Version strings can be resolved by {@link VersionStrategy} implementations and then
+	 * set as a request attribute by {@link VersionResourceResolver}.
+	 * @param request current servlet request
+	 * @param response current servlet response
+	 * @see VersionResourceResolver
+	 */
+	protected void setETagHeader(HttpServletRequest request, HttpServletResponse response) {
+		String versionString = (String) request.getAttribute(VersionResourceResolver.RESOURCE_VERSION_ATTRIBUTE);
+		if (versionString != null) {
+			response.setHeader(HttpHeaders.ETAG, "\"" + versionString + "\"");
+		}
+	}
+
+	/**
 	 * Set headers on the given servlet response.
 	 * Called for GET requests as well as HEAD requests.
 	 * @param response current servlet response
@@ -419,7 +441,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 		}
 
 		if (resource instanceof EncodedResource) {
-			response.setHeader(CONTENT_ENCODING, ((EncodedResource) resource).getContentEncoding());
+			response.setHeader(HttpHeaders.CONTENT_ENCODING, ((EncodedResource) resource).getContentEncoding());
 		}
 
 		response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
@@ -532,15 +554,12 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 	}
 
 	private void copyRange(InputStream in, OutputStream out, long start, long end) throws IOException {
-
 		long skipped = in.skip(start);
-
 		if (skipped < start) {
 			throw new IOException("Skipped only " + skipped + " bytes out of " + start + " required.");
 		}
 
 		long bytesToCopy = end - start + 1;
-
 		byte buffer[] = new byte[StreamUtils.BUFFER_SIZE];
 		while (bytesToCopy > 0) {
 			int bytesRead = in.read(buffer);
@@ -561,8 +580,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator implements H
 
 	@Override
 	public String toString() {
-		return "ResourceHttpRequestHandler [locations=" +
-				getLocations() + ", resolvers=" + getResourceResolvers() + "]";
+		return "ResourceHttpRequestHandler [locations=" + getLocations() + ", resolvers=" + getResourceResolvers() + "]";
 	}
 
 

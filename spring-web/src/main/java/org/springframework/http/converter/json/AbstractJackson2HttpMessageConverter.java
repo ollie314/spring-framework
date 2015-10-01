@@ -212,10 +212,10 @@ public abstract class AbstractJackson2HttpMessageConverter extends AbstractGener
 	private Object readJavaType(JavaType javaType, HttpInputMessage inputMessage) {
 		try {
 			if (inputMessage instanceof MappingJacksonInputMessage) {
-				Class<?> deserializationView = ((MappingJacksonInputMessage)inputMessage).getDeserializationView();
+				Class<?> deserializationView = ((MappingJacksonInputMessage) inputMessage).getDeserializationView();
 				if (deserializationView != null) {
-					return this.objectMapper.readerWithView(deserializationView)
-							.withType(javaType).readValue(inputMessage.getBody());
+					return this.objectMapper.readerWithView(deserializationView).withType(javaType).
+							readValue(inputMessage.getBody());
 				}
 			}
 			return this.objectMapper.readValue(inputMessage.getBody(), javaType);
@@ -245,8 +245,7 @@ public abstract class AbstractJackson2HttpMessageConverter extends AbstractGener
 				serializationView = container.getSerializationView();
 				filters = container.getFilters();
 			}
-			if (jackson26Available && type != null && value != null
-					&& TypeUtils.isAssignable(type, value.getClass())) {
+			if (jackson26Available && type != null && value != null && TypeUtils.isAssignable(type, value.getClass())) {
 				javaType = getJavaType(type, null);
 			}
 			ObjectWriter objectWriter;
@@ -259,7 +258,7 @@ public abstract class AbstractJackson2HttpMessageConverter extends AbstractGener
 			else {
 				objectWriter = this.objectMapper.writer();
 			}
-			if (javaType != null) {
+			if (javaType != null && javaType.isContainerType()) {
 				objectWriter = objectWriter.withType(javaType);
 			}
 			objectWriter.writeValue(generator, value);

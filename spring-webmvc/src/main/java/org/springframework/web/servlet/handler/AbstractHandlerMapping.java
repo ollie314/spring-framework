@@ -19,7 +19,6 @@ package org.springframework.web.servlet.handler;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
@@ -29,6 +28,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.core.Ordered;
 import org.springframework.web.HttpRequestHandler;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.cors.CorsProcessor;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -81,8 +81,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 
 	private CorsProcessor corsProcessor = new DefaultCorsProcessor();
 
-	private final Map<String, CorsConfiguration> corsConfiguration =
-			new LinkedHashMap<String, CorsConfiguration>();
+	private final UrlBasedCorsConfigurationSource corsConfigSource = new UrlBasedCorsConfigurationSource();
 
 
 	/**
@@ -125,6 +124,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 */
 	public void setAlwaysUseFullPath(boolean alwaysUseFullPath) {
 		this.urlPathHelper.setAlwaysUseFullPath(alwaysUseFullPath);
+		this.corsConfigSource.setAlwaysUseFullPath(alwaysUseFullPath);
 	}
 
 	/**
@@ -136,6 +136,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 */
 	public void setUrlDecode(boolean urlDecode) {
 		this.urlPathHelper.setUrlDecode(urlDecode);
+		this.corsConfigSource.setUrlDecode(urlDecode);
 	}
 
 	/**
@@ -145,6 +146,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 */
 	public void setRemoveSemicolonContent(boolean removeSemicolonContent) {
 		this.urlPathHelper.setRemoveSemicolonContent(removeSemicolonContent);
+		this.corsConfigSource.setRemoveSemicolonContent(removeSemicolonContent);
 	}
 
 	/**
@@ -156,6 +158,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	public void setUrlPathHelper(UrlPathHelper urlPathHelper) {
 		Assert.notNull(urlPathHelper, "UrlPathHelper must not be null");
 		this.urlPathHelper = urlPathHelper;
+		this.corsConfigSource.setUrlPathHelper(urlPathHelper);
 	}
 
 	/**
@@ -173,6 +176,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	public void setPathMatcher(PathMatcher pathMatcher) {
 		Assert.notNull(pathMatcher, "PathMatcher must not be null");
 		this.pathMatcher = pathMatcher;
+		this.corsConfigSource.setPathMatcher(pathMatcher);
 	}
 
 	/**
@@ -221,18 +225,15 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 * handler, if any.
 	 * @since 4.2
 	 */
-	public void setCorsConfiguration(Map<String, CorsConfiguration> corsConfiguration) {
-		this.corsConfiguration.clear();
-		if (corsConfiguration != null) {
-			this.corsConfiguration.putAll(corsConfiguration);
-		}
+	public void setCorsConfigurations(Map<String, CorsConfiguration> corsConfigurations) {
+		this.corsConfigSource.setCorsConfigurations(corsConfigurations);
 	}
 
 	/**
 	 * Get the CORS configuration.
 	 */
-	public Map<String, CorsConfiguration> getCorsConfiguration() {
-		return this.corsConfiguration;
+	public Map<String, CorsConfiguration> getCorsConfigurations() {
+		return this.corsConfigSource.getCorsConfigurations();
 	}
 
 	/**
@@ -359,9 +360,10 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			String handlerName = (String) handler;
 			handler = getApplicationContext().getBean(handlerName);
 		}
+
 		HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request);
 		if (CorsUtils.isCorsRequest(request)) {
-			CorsConfiguration globalConfig = getCorsConfiguration(request);
+			CorsConfiguration globalConfig = this.corsConfigSource.getCorsConfiguration(request);
 			CorsConfiguration handlerConfig = getCorsConfiguration(handler, request);
 			CorsConfiguration config = (globalConfig != null ? globalConfig.combine(handlerConfig) : handlerConfig);
 			executionChain = getCorsHandlerExecutionChain(request, executionChain, config);
@@ -373,17 +375,14 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 * Look up a handler for the given request, returning {@code null} if no
 	 * specific one is found. This method is called by {@link #getHandler};
 	 * a {@code null} return value will lead to the default handler, if one is set.
-	 *
 	 * <p>On CORS pre-flight requests this method should return a match not for
 	 * the pre-flight request but for the expected actual request based on the URL
 	 * path, the HTTP methods from the "Access-Control-Request-Method" header, and
 	 * the headers from the "Access-Control-Request-Headers" header thus allowing
-	 * the CORS configuration to be obtained via {@link #getCorsConfiguration},
-	 *
+	 * the CORS configuration to be obtained via {@link #getCorsConfigurations},
 	 * <p>Note: This method may also return a pre-built {@link HandlerExecutionChain},
 	 * combining a handler object with dynamically determined interceptors.
 	 * Statically specified interceptors will get merged into such an existing chain.
-	 *
 	 * @param request current HTTP request
 	 * @return the corresponding handler instance, or {@code null} if none found
 	 * @throws Exception if there is an internal error
@@ -427,22 +426,6 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			}
 		}
 		return chain;
-	}
-
-	/**
-	 * Find the "global" CORS configuration for the given URL configured via
-	 * {@link #setCorsConfiguration(Map)}.
-	 * @param request the request
-	 * @return the CORS configuration or {@code null}
-	 */
-	protected CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
-		String lookupPath = getUrlPathHelper().getLookupPathForRequest(request);
-		for(Map.Entry<String, CorsConfiguration> entry : getCorsConfiguration().entrySet()) {
-			if (getPathMatcher().match(entry.getKey(), lookupPath)) {
-				return entry.getValue();
-			}
-		}
-		return null;
 	}
 
 	/**
@@ -503,6 +486,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			corsProcessor.processRequest(this.config, request, response);
 		}
 	}
+
 
 	private class CorsInterceptor extends HandlerInterceptorAdapter {
 

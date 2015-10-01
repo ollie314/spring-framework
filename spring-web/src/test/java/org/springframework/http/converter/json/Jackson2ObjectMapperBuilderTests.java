@@ -18,6 +18,8 @@ package org.springframework.http.converter.json;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -101,6 +103,7 @@ public class Jackson2ObjectMapperBuilderTests {
 		assertFalse(objectMapper.isEnabled(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES));
 		assertTrue(objectMapper.isEnabled(MapperFeature.AUTO_DETECT_FIELDS));
 		assertTrue(objectMapper.isEnabled(MapperFeature.AUTO_DETECT_GETTERS));
+		assertTrue(objectMapper.isEnabled(MapperFeature.AUTO_DETECT_IS_GETTERS));
 		assertTrue(objectMapper.isEnabled(MapperFeature.AUTO_DETECT_SETTERS));
 		assertFalse(objectMapper.isEnabled(SerializationFeature.INDENT_OUTPUT));
 		assertTrue(objectMapper.isEnabled(SerializationFeature.FAIL_ON_EMPTY_BEANS));
@@ -116,6 +119,7 @@ public class Jackson2ObjectMapperBuilderTests {
 		assertTrue(objectMapper.isEnabled(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES));
 		assertFalse(objectMapper.isEnabled(MapperFeature.AUTO_DETECT_FIELDS));
 		assertFalse(objectMapper.isEnabled(MapperFeature.AUTO_DETECT_GETTERS));
+		assertFalse(objectMapper.isEnabled(MapperFeature.AUTO_DETECT_IS_GETTERS));
 		assertFalse(objectMapper.isEnabled(MapperFeature.AUTO_DETECT_SETTERS));
 		assertTrue(objectMapper.isEnabled(SerializationFeature.INDENT_OUTPUT));
 		assertFalse(objectMapper.isEnabled(SerializationFeature.FAIL_ON_EMPTY_BEANS));
@@ -237,19 +241,22 @@ public class Jackson2ObjectMapperBuilderTests {
 	}
 
 	@Test
-	public void defaultModules() throws JsonProcessingException, UnsupportedEncodingException {
+	public void wellKnownModules() throws JsonProcessingException, UnsupportedEncodingException {
 		ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json().build();
 
 		Long timestamp = 1322903730000L;
 		DateTime dateTime = new DateTime(timestamp, DateTimeZone.UTC);
 		assertEquals(timestamp.toString(), new String(objectMapper.writeValueAsBytes(dateTime), "UTF-8"));
 
+		Path file = Paths.get("foo");
+		assertEquals("\"foo\"", new String(objectMapper.writeValueAsBytes(file), "UTF-8"));
+
 		Optional<String> optional = Optional.of("test");
 		assertEquals("\"test\"", new String(objectMapper.writeValueAsBytes(optional), "UTF-8"));
 	}
 
 	@Test // SPR-12634
-	public void customizeDefaultModulesWithModule() throws JsonProcessingException, UnsupportedEncodingException {
+	public void customizeWellKnownModulesWithModule() throws JsonProcessingException, UnsupportedEncodingException {
 		ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json()
 				.modulesToInstall(new CustomIntegerModule()).build();
 		DateTime dateTime = new DateTime(1322903730000L, DateTimeZone.UTC);
@@ -259,7 +266,7 @@ public class Jackson2ObjectMapperBuilderTests {
 
 	@Test // SPR-12634
 	@SuppressWarnings("unchecked")
-	public void customizeDefaultModulesWithModuleClass() throws JsonProcessingException, UnsupportedEncodingException {
+	public void customizeWellKnownModulesWithModuleClass() throws JsonProcessingException, UnsupportedEncodingException {
 		ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json().modulesToInstall(CustomIntegerModule.class).build();
 		DateTime dateTime = new DateTime(1322903730000L, DateTimeZone.UTC);
 		assertEquals("1322903730000", new String(objectMapper.writeValueAsBytes(dateTime), "UTF-8"));
@@ -267,7 +274,7 @@ public class Jackson2ObjectMapperBuilderTests {
 	}
 
 	@Test // SPR-12634
-	public void customizeDefaultModulesWithSerializer() throws JsonProcessingException, UnsupportedEncodingException {
+	public void customizeWellKnownModulesWithSerializer() throws JsonProcessingException, UnsupportedEncodingException {
 		ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json()
 				.serializerByType(Integer.class, new CustomIntegerSerializer()).build();
 		DateTime dateTime = new DateTime(1322903730000L, DateTimeZone.UTC);

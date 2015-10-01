@@ -80,7 +80,6 @@ import org.xml.sax.helpers.XMLReaderFactory;
 
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.core.JdkVersion;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.oxm.GenericMarshaller;
@@ -585,19 +584,14 @@ public class Jaxb2Marshaller implements MimeMarshaller, MimeUnmarshaller, Generi
 				Type typeArgument = parameterizedType.getActualTypeArguments()[0];
 				if (typeArgument instanceof Class) {
 					Class<?> classArgument = (Class<?>) typeArgument;
-					if (JdkVersion.getMajorJavaVersion() >= JdkVersion.JAVA_17 && classArgument.isArray()) {
-						return classArgument.getComponentType().equals(Byte.TYPE);
-					}
-					else {
-						return (isPrimitiveWrapper(classArgument) || isStandardClass(classArgument) ||
-								supportsInternal(classArgument, false));
-					}
+					return (((classArgument.isArray() && Byte.TYPE == classArgument.getComponentType())) ||
+							isPrimitiveWrapper(classArgument) || isStandardClass(classArgument) ||
+							supportsInternal(classArgument, false));
 				}
-				else if (JdkVersion.getMajorJavaVersion() <= JdkVersion.JAVA_16 &&
-						typeArgument instanceof GenericArrayType) {
-					// see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5041784
+				else if (typeArgument instanceof GenericArrayType) {
+					// Only on JDK 6 - see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5041784
 					GenericArrayType arrayType = (GenericArrayType) typeArgument;
-					return arrayType.getGenericComponentType().equals(Byte.TYPE);
+					return (Byte.TYPE == arrayType.getGenericComponentType());
 				}
 			}
 		}
@@ -633,13 +627,13 @@ public class Jaxb2Marshaller implements MimeMarshaller, MimeUnmarshaller, Generi
 	 * Compare section 8.5.1 of the JAXB2 spec.
 	 */
 	private boolean isPrimitiveWrapper(Class<?> clazz) {
-		return Boolean.class == clazz ||
+		return (Boolean.class == clazz ||
 				Byte.class == clazz ||
 				Short.class == clazz ||
 				Integer.class == clazz ||
 				Long.class == clazz ||
 				Float.class == clazz ||
-				Double.class == clazz;
+				Double.class == clazz);
 	}
 
 	/**
@@ -647,7 +641,7 @@ public class Jaxb2Marshaller implements MimeMarshaller, MimeUnmarshaller, Generi
 	 * Compare section 8.5.2 of the JAXB2 spec.
 	 */
 	private boolean isStandardClass(Class<?> clazz) {
-		return String.class == clazz ||
+		return (String.class == clazz ||
 				BigInteger.class.isAssignableFrom(clazz) ||
 				BigDecimal.class.isAssignableFrom(clazz) ||
 				Calendar.class.isAssignableFrom(clazz) ||
@@ -660,9 +654,10 @@ public class Jaxb2Marshaller implements MimeMarshaller, MimeUnmarshaller, Generi
 				DataHandler.class == clazz ||
 				// Source and subclasses should be supported according to the JAXB2 spec, but aren't in the RI
 				// Source.class.isAssignableFrom(clazz) ||
-				UUID.class == clazz;
+				UUID.class == clazz);
 
 	}
+
 
 	// Marshalling
 

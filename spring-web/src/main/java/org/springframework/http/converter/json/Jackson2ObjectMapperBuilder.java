@@ -65,8 +65,14 @@ import org.springframework.util.StringUtils;
  * <li>{@link DeserializationFeature#FAIL_ON_UNKNOWN_PROPERTIES} is disabled</li>
  * </ul>
  *
- * <p>Note that Jackson's JSR-310 and Joda-Time support modules will be registered automatically
- * when available (and when Java 8 and Joda-Time themselves are available, respectively).
+ * <p>It also automatically registers the following well-known modules if they are
+ * detected on the classpath:
+ * <ul>
+ * <li><a href="https://github.com/FasterXML/jackson-datatype-jdk7">jackson-datatype-jdk7</a>: support for Java 7 types like {@link java.nio.file.Path}</li>
+ * <li><a href="https://github.com/FasterXML/jackson-datatype-joda">jackson-datatype-joda</a>: support for Joda-Time types</li>
+ * <li><a href="https://github.com/FasterXML/jackson-datatype-jsr310">jackson-datatype-jsr310</a>: support for Java 8 Date & Time API types</li>
+ * <li><a href="https://github.com/FasterXML/jackson-datatype-jdk8">jackson-datatype-jdk8</a>: support for other Java 8 types like {@link java.util.Optional}</li>
+ * </ul>
  *
  * <p>Tested against Jackson 2.2, 2.3, 2.4, 2.5, 2.6; compatible with Jackson 2.0 and higher.
  *
@@ -332,11 +338,13 @@ public class Jackson2ObjectMapperBuilder {
 
 	/**
 	 * Shortcut for {@link MapperFeature#AUTO_DETECT_SETTERS}/
-	 * {@link MapperFeature#AUTO_DETECT_GETTERS} option.
+	 * {@link MapperFeature#AUTO_DETECT_GETTERS}/{@link MapperFeature#AUTO_DETECT_IS_GETTERS}
+	 * options.
 	 */
 	public Jackson2ObjectMapperBuilder autoDetectGettersSetters(boolean autoDetectGettersSetters) {
 		this.features.put(MapperFeature.AUTO_DETECT_GETTERS, autoDetectGettersSetters);
 		this.features.put(MapperFeature.AUTO_DETECT_SETTERS, autoDetectGettersSetters);
+		this.features.put(MapperFeature.AUTO_DETECT_IS_GETTERS, autoDetectGettersSetters);
 		return this;
 	}
 
@@ -663,6 +671,18 @@ public class Jackson2ObjectMapperBuilder {
 
 	@SuppressWarnings("unchecked")
 	private void registerWellKnownModulesIfAvailable(ObjectMapper objectMapper) {
+		// Java 7 java.nio.file.Path class present?
+		if (ClassUtils.isPresent("java.nio.file.Path", this.moduleClassLoader)) {
+			try {
+				Class<? extends Module> jdk7Module = (Class<? extends Module>)
+						ClassUtils.forName("com.fasterxml.jackson.datatype.jdk7.Jdk7Module", this.moduleClassLoader);
+				objectMapper.registerModule(BeanUtils.instantiate(jdk7Module));
+			}
+			catch (ClassNotFoundException ex) {
+				// jackson-datatype-jdk7 not available
+			}
+		}
+
 		// Java 8 java.util.Optional class present?
 		if (ClassUtils.isPresent("java.util.Optional", this.moduleClassLoader)) {
 			try {
@@ -674,17 +694,27 @@ public class Jackson2ObjectMapperBuilder {
 				// jackson-datatype-jdk8 not available
 			}
 		}
+
 		// Java 8 java.time package present?
 		if (ClassUtils.isPresent("java.time.LocalDate", this.moduleClassLoader)) {
 			try {
-				Class<? extends Module> jsr310Module = (Class<? extends Module>)
-						ClassUtils.forName("com.fasterxml.jackson.datatype.jsr310.JSR310Module", this.moduleClassLoader);
-				objectMapper.registerModule(BeanUtils.instantiate(jsr310Module));
+				Class<? extends Module> javaTimeModule = (Class<? extends Module>)
+						ClassUtils.forName("com.fasterxml.jackson.datatype.jsr310.JavaTimeModule", this.moduleClassLoader);
+				objectMapper.registerModule(BeanUtils.instantiate(javaTimeModule));
 			}
 			catch (ClassNotFoundException ex) {
-				// jackson-datatype-jsr310 not available
+				// jackson-datatype-jsr310 not available or older than 2.6
+				try {
+					Class<? extends Module> jsr310Module = (Class<? extends Module>)
+							ClassUtils.forName("com.fasterxml.jackson.datatype.jsr310.JSR310Module", this.moduleClassLoader);
+					objectMapper.registerModule(BeanUtils.instantiate(jsr310Module));
+				}
+				catch (ClassNotFoundException ex2) {
+					// OK, jackson-datatype-jsr310 not available at all...
+				}
 			}
 		}
+
 		// Joda-Time present?
 		if (ClassUtils.isPresent("org.joda.time.LocalDate", this.moduleClassLoader)) {
 			try {

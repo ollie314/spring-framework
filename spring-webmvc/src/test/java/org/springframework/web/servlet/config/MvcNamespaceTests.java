@@ -31,14 +31,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
 import javax.servlet.RequestDispatcher;
 import javax.validation.constraints.NotNull;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import org.apache.tiles.definition.UnresolvingLocaleDefinitionsFactory;
 import org.hamcrest.Matchers;
-
 import org.joda.time.LocalDate;
-
 import org.junit.Before;
 import org.junit.Test;
 
@@ -56,6 +58,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.format.annotation.DateTimeFormat.ISO;
 import org.springframework.format.annotation.NumberFormat;
 import org.springframework.format.support.FormattingConversionServiceFactoryBean;
+import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter;
@@ -75,7 +78,6 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.accept.ContentNegotiationManager;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.http.CacheControl;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.context.request.ServletWebRequest;
@@ -135,16 +137,12 @@ import org.springframework.web.servlet.view.groovy.GroovyMarkupConfigurer;
 import org.springframework.web.servlet.view.groovy.GroovyMarkupViewResolver;
 import org.springframework.web.servlet.view.script.ScriptTemplateConfigurer;
 import org.springframework.web.servlet.view.script.ScriptTemplateViewResolver;
+import org.springframework.web.servlet.view.tiles3.SpringBeanPreparerFactory;
 import org.springframework.web.servlet.view.tiles3.TilesConfigurer;
 import org.springframework.web.servlet.view.tiles3.TilesViewResolver;
 import org.springframework.web.servlet.view.velocity.VelocityConfigurer;
 import org.springframework.web.servlet.view.velocity.VelocityViewResolver;
 import org.springframework.web.util.UrlPathHelper;
-
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.*;
@@ -396,8 +394,6 @@ public class MvcNamespaceTests {
 				ResourceHttpRequestHandler.class);
 		assertNotNull(handler);
 		assertEquals(3600, handler.getCacheSeconds());
-		assertThat(handler.getCacheControl().getHeaderValue(),
-				Matchers.equalTo(CacheControl.maxAge(1, TimeUnit.HOURS).getHeaderValue()));
 	}
 
 	@Test
@@ -785,6 +781,8 @@ public class MvcNamespaceTests {
 		accessor = new DirectFieldAccessor(tilesConfigurer);
 		assertArrayEquals(definitions, (String[]) accessor.getPropertyValue("definitions"));
 		assertTrue((boolean) accessor.getPropertyValue("checkRefresh"));
+		assertEquals(UnresolvingLocaleDefinitionsFactory.class, accessor.getPropertyValue("definitionsFactoryClass"));
+		assertEquals(SpringBeanPreparerFactory.class, accessor.getPropertyValue("preparerFactoryClass"));
 
 		FreeMarkerConfigurer freeMarkerConfigurer = appContext.getBean(FreeMarkerConfigurer.class);
 		assertNotNull(freeMarkerConfigurer);
@@ -805,8 +803,10 @@ public class MvcNamespaceTests {
 		ScriptTemplateConfigurer scriptTemplateConfigurer = appContext.getBean(ScriptTemplateConfigurer.class);
 		assertNotNull(scriptTemplateConfigurer);
 		assertEquals("render", scriptTemplateConfigurer.getRenderFunction());
+		assertEquals(MediaType.TEXT_PLAIN_VALUE, scriptTemplateConfigurer.getContentType());
 		assertEquals(StandardCharsets.ISO_8859_1, scriptTemplateConfigurer.getCharset());
 		assertEquals("classpath:", scriptTemplateConfigurer.getResourceLoaderPath());
+		assertFalse(scriptTemplateConfigurer.isSharedEngine());
 		String[] scripts = { "org/springframework/web/servlet/view/script/nashorn/render.js" };
 		accessor = new DirectFieldAccessor(scriptTemplateConfigurer);
 		assertArrayEquals(scripts, (String[]) accessor.getPropertyValue("scripts"));
@@ -875,7 +875,7 @@ public class MvcNamespaceTests {
 		for (String beanName : beanNames) {
 			AbstractHandlerMapping handlerMapping = (AbstractHandlerMapping)appContext.getBean(beanName);
 			assertNotNull(handlerMapping);
-			Map<String, CorsConfiguration> configs = handlerMapping.getCorsConfiguration();
+			Map<String, CorsConfiguration> configs = handlerMapping.getCorsConfigurations();
 			assertNotNull(configs);
 			assertEquals(1, configs.size());
 			CorsConfiguration config = configs.get("/**");
@@ -898,7 +898,7 @@ public class MvcNamespaceTests {
 		for (String beanName : beanNames) {
 			AbstractHandlerMapping handlerMapping = (AbstractHandlerMapping)appContext.getBean(beanName);
 			assertNotNull(handlerMapping);
-			Map<String, CorsConfiguration> configs = handlerMapping.getCorsConfiguration();
+			Map<String, CorsConfiguration> configs = handlerMapping.getCorsConfigurations();
 			assertNotNull(configs);
 			assertEquals(2, configs.size());
 			CorsConfiguration config = configs.get("/api/**");

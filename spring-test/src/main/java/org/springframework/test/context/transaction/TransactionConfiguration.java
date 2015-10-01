@@ -34,12 +34,16 @@ import java.lang.annotation.Target;
  * @since 2.5
  * @see TransactionalTestExecutionListener
  * @see org.springframework.transaction.annotation.Transactional
+ * @see org.springframework.test.annotation.Commit
  * @see org.springframework.test.annotation.Rollback
  * @see org.springframework.test.context.jdbc.Sql
  * @see org.springframework.test.context.jdbc.SqlConfig
  * @see org.springframework.test.context.jdbc.SqlConfig#transactionManager
  * @see org.springframework.test.context.ContextConfiguration
+ * @deprecated As of Spring Framework 4.2, use {@code @Rollback} at the class
+ * level and the {@code transactionManager} qualifier in {@code @Transactional}.
  */
+@Deprecated
 @Documented
 @Inherited
 @Retention(RetentionPolicy.RUNTIME)
@@ -48,7 +52,7 @@ public @interface TransactionConfiguration {
 
 	/**
 	 * The bean name of the {@link org.springframework.transaction.PlatformTransactionManager
-	 * PlatformTransactionManager} that should be used to drive transactions.
+	 * PlatformTransactionManager} that should be used to drive <em>test-managed transactions</em>.
 	 *
 	 * <p>The name is only used if there is more than one bean of type
 	 * {@code PlatformTransactionManager} in the test's {@code ApplicationContext}.
@@ -76,7 +80,7 @@ public @interface TransactionConfiguration {
 	String transactionManager() default "";
 
 	/**
-	 * Should transactions be rolled back by default?
+	 * Whether <em>test-managed transactions</em> should be rolled back by default.
 	 */
 	boolean defaultRollback() default true;
 

@@ -277,7 +277,9 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 
 				try {
 					SimpAttributesContextHolder.setAttributesFromMessage(message);
-					if (this.eventPublisher != null) {
+					boolean sent = outputChannel.send(message);
+
+					if (sent && this.eventPublisher != null) {
 						if (StompCommand.CONNECT.equals(headerAccessor.getCommand())) {
 							publishEvent(new SessionConnectEvent(this, message, user));
 						}
@@ -288,7 +290,6 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 							publishEvent(new SessionUnsubscribeEvent(this, message, user));
 						}
 					}
-					outputChannel.send(message);
 				}
 				finally {
 					SimpAttributesContextHolder.resetAttributes();
@@ -371,8 +372,8 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 	/**
 	 * Handle STOMP messages going back out to WebSocket clients.
 	 */
-	@SuppressWarnings("unchecked")
 	@Override
+	@SuppressWarnings("unchecked")
 	public void handleMessageToClient(WebSocketSession session, Message<?> message) {
 		if (!(message.getPayload() instanceof byte[])) {
 			logger.error("Expected byte[] payload. Ignoring " + message + ".");
@@ -526,6 +527,7 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 		return (headerAccessor.isMutable() ? headerAccessor : StompHeaderAccessor.wrap(message));
 	}
 
+	@SuppressWarnings("deprecation")
 	private StompHeaderAccessor afterStompSessionConnected(Message<?> message, StompHeaderAccessor accessor,
 			WebSocketSession session) {
 
@@ -572,6 +574,7 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 	}
 
 	@Override
+	@SuppressWarnings("deprecation")
 	public void afterSessionEnded(WebSocketSession session, CloseStatus closeStatus, MessageChannel outputChannel) {
 		this.decoders.remove(session.getId());
 
