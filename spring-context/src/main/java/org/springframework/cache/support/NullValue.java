@@ -14,32 +14,30 @@
  * limitations under the License.
  */
 
-package org.springframework.web.servlet.view.script;
+package org.springframework.cache.support;
+
+import java.io.Serializable;
 
 /**
- * Exception thrown when an error occurs during script template rendering.
+ * Simple serializable class that serves as a {@code null} replacement
+ * for cache stores which otherwise do not support {@code null} values.
  *
- * <p>It does not print the java stacktrace in the logs, since it is not useful
- * in this script context.
- *
- * @author Sebastien Deleuze
+ * @author Juergen Hoeller
  * @since 4.2.2
+ * @see AbstractValueAdaptingCache
  */
-public class ScriptRenderException extends RuntimeException {
+public final class NullValue implements Serializable {
 
-	private static final long serialVersionUID = 421565510962788082L;
+	static final Object INSTANCE = new NullValue();
+
+	private static final long serialVersionUID = 1L;
 
 
-	/**
-	 * Constructs a new script rendering exception with the specified detail message.
-	 */
-	public ScriptRenderException(String msg) {
-		super(msg);
+	private NullValue() {
 	}
 
-	@Override
-	public synchronized Throwable fillInStackTrace() {
-		return this;
+	private Object readResolve() {
+		return INSTANCE;
 	}
 
 }
