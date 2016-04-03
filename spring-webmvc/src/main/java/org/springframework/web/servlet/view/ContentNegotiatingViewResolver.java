@@ -120,6 +120,14 @@ public class ContentNegotiatingViewResolver extends WebApplicationObjectSupport
 	}
 
 	/**
+	 * Return the {@link ContentNegotiationManager} to use to determine requested media types.
+	 * @since 4.1.9
+	 */
+	public ContentNegotiationManager getContentNegotiationManager() {
+		return this.contentNegotiationManager;
+	}
+
+	/**
 	 * Indicate whether a {@link HttpServletResponse#SC_NOT_ACCEPTABLE 406 Not Acceptable}
 	 * status code should be returned if no suitable view can be found.
 	 * <p>Default is {@code false}, meaning that this view resolver returns {@code null} for

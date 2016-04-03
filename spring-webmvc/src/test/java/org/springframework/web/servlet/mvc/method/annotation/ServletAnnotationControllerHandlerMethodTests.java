@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,9 @@
 
 package org.springframework.web.servlet.mvc.method.annotation;
 
-import static org.junit.Assert.*;
-
 import java.beans.PropertyEditorSupport;
 import java.io.IOException;
 import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -30,6 +27,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.security.Principal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -44,7 +42,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
@@ -108,6 +105,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.Errors;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.web.accept.ContentNegotiationManagerFactoryBean;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -141,21 +139,23 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.support.RequestContextUtils;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 
+import static org.junit.Assert.*;
+
 /**
  * The origin of this test class is {@link ServletAnnotationControllerHandlerMethodTests}.
  *
  * Tests in this class run against the {@link HandlerMethod} infrastructure:
  * <ul>
- * 	<li>RequestMappingHandlerMapping
- * 	<li>RequestMappingHandlerAdapter
- * 	<li>ExceptionHandlerExceptionResolver
+ * <li>RequestMappingHandlerMapping
+ * <li>RequestMappingHandlerAdapter
+ * <li>ExceptionHandlerExceptionResolver
  * </ul>
  *
  * <p>Rather than against the existing infrastructure:
  * <ul>
- * 	<li>DefaultAnnotationHandlerMapping
- * 	<li>AnnotationMethodHandlerAdapter
- * 	<li>AnnotationMethodHandlerExceptionResolver
+ * <li>DefaultAnnotationHandlerMapping
+ * <li>AnnotationMethodHandlerAdapter
+ * <li>AnnotationMethodHandlerExceptionResolver
  * </ul>
  *
  * @author Rossen Stoyanchev
@@ -165,6 +165,18 @@ public class ServletAnnotationControllerHandlerMethodTests extends AbstractServl
 	@Test
 	public void emptyValueMapping() throws Exception {
 		initServletWithControllers(ControllerWithEmptyValueMapping.class);
+
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/foo");
+		request.setContextPath("/foo");
+		request.setServletPath("");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		getServlet().service(request, response);
+		assertEquals("test", response.getContentAsString());
+	}
+
+	@Test
+	public void errorThrownFromHandlerMethod() throws Exception {
+		initServletWithControllers(ControllerWithErrorThrown.class);
 
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/foo");
 		request.setContextPath("/foo");
@@ -960,7 +972,7 @@ public class ServletAnnotationControllerHandlerMethodTests extends AbstractServl
 	public void httpEntity() throws ServletException, IOException {
 		initServletWithControllers(ResponseEntityController.class);
 
-		MockHttpServletRequest request = new MockHttpServletRequest("PUT", "/foo");
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/foo");
 		String requestBody = "Hello World";
 		request.setContent(requestBody.getBytes("UTF-8"));
 		request.addHeader("Content-Type", "text/plain; charset=utf-8");
@@ -972,7 +984,7 @@ public class ServletAnnotationControllerHandlerMethodTests extends AbstractServl
 		assertEquals(requestBody, response.getContentAsString());
 		assertEquals("MyValue", response.getHeader("MyResponseHeader"));
 
-		request = new MockHttpServletRequest("PUT", "/bar");
+		request = new MockHttpServletRequest("GET", "/bar");
 		response = new MockHttpServletResponse();
 		getServlet().service(request, response);
 		assertEquals("MyValue", response.getHeader("MyResponseHeader"));
@@ -1004,7 +1016,7 @@ public class ServletAnnotationControllerHandlerMethodTests extends AbstractServl
 		request.addHeader("Accept", "application/json, text/javascript, */*");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		getServlet().service(request, response);
-		assertEquals("Invalid content-type", "application/json", response.getHeader("Content-Type"));
+		assertEquals("Invalid content-type", "application/json;charset=ISO-8859-1", response.getHeader("Content-Type"));
 	}
 
 	@Test
@@ -1524,7 +1536,7 @@ public class ServletAnnotationControllerHandlerMethodTests extends AbstractServl
 		getServlet().service(request, response);
 
 		assertEquals(200, response.getStatus());
-		assertEquals("application/json", response.getHeader("Content-Type"));
+		assertEquals("application/json;charset=ISO-8859-1", response.getHeader("Content-Type"));
 		assertEquals("homeJson", response.getContentAsString());
 	}
 
@@ -1624,6 +1636,160 @@ public class ServletAnnotationControllerHandlerMethodTests extends AbstractServl
 		assertEquals("Expected an empty content", 0, response.getContentLength());
 	}
 
+	@Test
+	public void responseBodyAsHtml() throws Exception {
+		initServlet(new ApplicationContextInitializer<GenericWebApplicationContext>() {
+			@Override
+			public void initialize(GenericWebApplicationContext wac) {
+				ContentNegotiationManagerFactoryBean factoryBean = new ContentNegotiationManagerFactoryBean();
+				factoryBean.afterPropertiesSet();
+				RootBeanDefinition adapterDef = new RootBeanDefinition(RequestMappingHandlerAdapter.class);
+				adapterDef.getPropertyValues().add("contentNegotiationManager", factoryBean.getObject());
+				wac.registerBeanDefinition("handlerAdapter", adapterDef);
+			}
+		}, TextRestController.class);
+
+		byte[] content = "alert('boo')".getBytes(Charset.forName("ISO-8859-1"));
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/a1.html");
+		request.setContent(content);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+
+		getServlet().service(request, response);
+
+		assertEquals(200, response.getStatus());
+		assertEquals("text/html;charset=ISO-8859-1", response.getContentType());
+		assertEquals("inline;filename=f.txt", response.getHeader("Content-Disposition"));
+		assertArrayEquals(content, response.getContentAsByteArray());
+	}
+
+	@Test
+	public void responseBodyAsHtmlWithSuffixPresent() throws Exception {
+		initServlet(new ApplicationContextInitializer<GenericWebApplicationContext>() {
+			@Override
+			public void initialize(GenericWebApplicationContext wac) {
+				ContentNegotiationManagerFactoryBean factoryBean = new ContentNegotiationManagerFactoryBean();
+				factoryBean.afterPropertiesSet();
+				RootBeanDefinition adapterDef = new RootBeanDefinition(RequestMappingHandlerAdapter.class);
+				adapterDef.getPropertyValues().add("contentNegotiationManager", factoryBean.getObject());
+				wac.registerBeanDefinition("handlerAdapter", adapterDef);
+			}
+		}, TextRestController.class);
+
+		byte[] content = "alert('boo')".getBytes(Charset.forName("ISO-8859-1"));
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/a2.html");
+		request.setContent(content);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+
+		getServlet().service(request, response);
+
+		assertEquals(200, response.getStatus());
+		assertEquals("text/html;charset=ISO-8859-1", response.getContentType());
+		assertNull(response.getHeader("Content-Disposition"));
+		assertArrayEquals(content, response.getContentAsByteArray());
+	}
+
+	@Test
+	public void responseBodyAsHtmlWithProducesCondition() throws Exception {
+		initServlet(new ApplicationContextInitializer<GenericWebApplicationContext>() {
+			@Override
+			public void initialize(GenericWebApplicationContext wac) {
+				ContentNegotiationManagerFactoryBean factoryBean = new ContentNegotiationManagerFactoryBean();
+				factoryBean.afterPropertiesSet();
+				RootBeanDefinition adapterDef = new RootBeanDefinition(RequestMappingHandlerAdapter.class);
+				adapterDef.getPropertyValues().add("contentNegotiationManager", factoryBean.getObject());
+				wac.registerBeanDefinition("handlerAdapter", adapterDef);
+			}
+		}, TextRestController.class);
+
+		byte[] content = "alert('boo')".getBytes(Charset.forName("ISO-8859-1"));
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/a3.html");
+		request.setContent(content);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+
+		getServlet().service(request, response);
+
+		assertEquals(200, response.getStatus());
+		assertEquals("text/html;charset=ISO-8859-1", response.getContentType());
+		assertNull(response.getHeader("Content-Disposition"));
+		assertArrayEquals(content, response.getContentAsByteArray());
+	}
+
+	@Test
+	public void responseBodyAsTextWithCssExtension() throws Exception {
+		initServlet(new ApplicationContextInitializer<GenericWebApplicationContext>() {
+			@Override
+			public void initialize(GenericWebApplicationContext wac) {
+				ContentNegotiationManagerFactoryBean factoryBean = new ContentNegotiationManagerFactoryBean();
+				factoryBean.afterPropertiesSet();
+				RootBeanDefinition adapterDef = new RootBeanDefinition(RequestMappingHandlerAdapter.class);
+				adapterDef.getPropertyValues().add("contentNegotiationManager", factoryBean.getObject());
+				wac.registerBeanDefinition("handlerAdapter", adapterDef);
+			}
+		}, TextRestController.class);
+
+		byte[] content = "body".getBytes(Charset.forName("ISO-8859-1"));
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/a4.css");
+		request.setContent(content);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+
+		getServlet().service(request, response);
+
+		assertEquals(200, response.getStatus());
+		assertEquals("text/css;charset=ISO-8859-1", response.getContentType());
+		assertNull(response.getHeader("Content-Disposition"));
+		assertArrayEquals(content, response.getContentAsByteArray());
+	}
+
+	@Test
+	public void modelAndViewWithStatus() throws Exception {
+		initServletWithControllers(ModelAndViewController.class);
+
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/path");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		getServlet().service(request, response);
+
+		assertEquals(422, response.getStatus());
+		assertEquals("view", response.getForwardedUrl());
+	}
+
+	@Test
+	public void httpHead() throws ServletException, IOException {
+		initServletWithControllers(ResponseEntityController.class);
+
+		MockHttpServletRequest request = new MockHttpServletRequest("HEAD", "/baz");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		getServlet().service(request, response);
+
+		assertEquals(200, response.getStatus());
+		assertEquals("MyValue", response.getHeader("MyResponseHeader"));
+		assertEquals(4, response.getContentLength());
+		assertTrue(response.getContentAsByteArray().length == 0);
+
+		// Now repeat with GET
+		request = new MockHttpServletRequest("GET", "/baz");
+		response = new MockHttpServletResponse();
+		getServlet().service(request, response);
+
+		assertEquals(200, response.getStatus());
+		assertEquals("MyValue", response.getHeader("MyResponseHeader"));
+		assertEquals(4, response.getContentLength());
+		assertEquals("body", response.getContentAsString());
+	}
+
+	@Test
+	public void httpOptions() throws ServletException, IOException {
+		initServletWithControllers(ResponseEntityController.class);
+
+		MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/baz");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		getServlet().service(request, response);
+
+		assertEquals(200, response.getStatus());
+		assertEquals("GET,HEAD", response.getHeader("Allow"));
+		assertTrue(response.getContentAsByteArray().length == 0);
+	}
+
+
 	/*
 	 * Controllers
 	 */
@@ -1644,6 +1810,25 @@ public class ServletAnnotationControllerHandlerMethodTests extends AbstractServl
 		@ExceptionHandler
 		public void myPath2(Exception ex, HttpServletResponse response) throws IOException {
 			response.getWriter().write(ex.getMessage());
+		}
+	}
+
+	@Controller
+	private static class ControllerWithErrorThrown {
+
+		@RequestMapping("")
+		public void myPath2(HttpServletResponse response) throws IOException {
+			throw new AssertionError("test");
+		}
+
+		@RequestMapping("/bar")
+		public void myPath3(HttpServletResponse response) throws IOException {
+			response.getWriter().write("testX");
+		}
+
+		@ExceptionHandler
+		public void myPath2(Error err, HttpServletResponse response) throws IOException {
+			response.getWriter().write(err.getMessage());
 		}
 	}
 
@@ -2894,25 +3079,27 @@ public class ServletAnnotationControllerHandlerMethodTests extends AbstractServl
 	@Controller
 	public static class ResponseEntityController {
 
-		@RequestMapping("/foo")
-		public ResponseEntity<String> foo(HttpEntity<byte[]> requestEntity) throws UnsupportedEncodingException {
+		@RequestMapping(path = "/foo", method = RequestMethod.POST)
+		public ResponseEntity<String> foo(HttpEntity<byte[]> requestEntity) throws Exception {
 			assertNotNull(requestEntity);
 			assertEquals("MyValue", requestEntity.getHeaders().getFirst("MyRequestHeader"));
-			String requestBody = new String(requestEntity.getBody(), "UTF-8");
-			assertEquals("Hello World", requestBody);
 
-			HttpHeaders responseHeaders = new HttpHeaders();
-			responseHeaders.set("MyResponseHeader", "MyValue");
-			return new ResponseEntity<String>(requestBody, responseHeaders, HttpStatus.CREATED);
+			String body = new String(requestEntity.getBody(), "UTF-8");
+			assertEquals("Hello World", body);
+
+			URI location = new URI("/foo");
+			return ResponseEntity.created(location).header("MyResponseHeader", "MyValue").body(body);
 		}
 
-		@RequestMapping("/bar")
-		public ResponseEntity<String> bar() {
-			HttpHeaders responseHeaders = new HttpHeaders();
-			responseHeaders.set("MyResponseHeader", "MyValue");
-			return new ResponseEntity<String>(responseHeaders, HttpStatus.NOT_FOUND);
+		@RequestMapping(path = "/bar", method = RequestMethod.GET)
+		public ResponseEntity<Void> bar() {
+			return ResponseEntity.notFound().header("MyResponseHeader", "MyValue").build();
 		}
 
+		@RequestMapping(path = "/baz", method = RequestMethod.GET)
+		public ResponseEntity<String> baz() {
+			return ResponseEntity.ok().header("MyResponseHeader", "MyValue").body("body");
+		}
 	}
 
 	@Controller
@@ -3081,6 +3268,39 @@ public class ServletAnnotationControllerHandlerMethodTests extends AbstractServl
 			return new HttpHeaders();
 		}
 
+	}
+
+	@RestController
+	public static class TextRestController {
+
+		@RequestMapping(path = "/a1", method = RequestMethod.GET)
+		public String a1(@RequestBody String body) {
+			return body;
+		}
+
+		@RequestMapping(path = "/a2.html", method = RequestMethod.GET)
+		public String a2(@RequestBody String body) {
+			return body;
+		}
+
+		@RequestMapping(path = "/a3", method = RequestMethod.GET, produces = "text/html")
+		public String a3(@RequestBody String body) throws IOException {
+			return body;
+		}
+
+		@RequestMapping(path = "/a4.css", method = RequestMethod.GET)
+		public String a4(@RequestBody String body) {
+			return body;
+		}
+	}
+
+	@Controller
+	public static class ModelAndViewController {
+
+		@RequestMapping("/path")
+		public ModelAndView methodWithHttpStatus(MyEntity object) {
+			return new ModelAndView("view", new ModelMap(), HttpStatus.UNPROCESSABLE_ENTITY);
+		}
 	}
 
 

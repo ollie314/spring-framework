@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -48,7 +49,7 @@ import org.springframework.web.servlet.View;
  *
  * <p>The default constructor uses the default configuration provided by {@link Jackson2ObjectMapperBuilder}.
  *
- * <p>Compatible with Jackson 2.1 and higher.
+ * <p>Compatible with Jackson 2.6 and higher, as of Spring 4.3.
  *
  * @author Jeremy Grelle
  * @author Arjen Poutsma
@@ -69,6 +70,12 @@ public class MappingJackson2JsonView extends AbstractJackson2View {
 	 * Default content type for JSONP: "application/javascript".
 	 */
 	public static final String DEFAULT_JSONP_CONTENT_TYPE = "application/javascript";
+
+	/**
+	 * Pattern for validating jsonp callback parameter values.
+	 */
+	private static final Pattern CALLBACK_PARAM_PATTERN = Pattern.compile("[0-9A-Za-z_\\.]*");
+
 
 	private String jsonPrefix;
 
@@ -170,12 +177,30 @@ public class MappingJackson2JsonView extends AbstractJackson2View {
 		if (this.jsonpParameterNames != null) {
 			for (String name : this.jsonpParameterNames) {
 				String value = request.getParameter(name);
-				if (!StringUtils.isEmpty(value)) {
-					return value;
+				if (StringUtils.isEmpty(value)) {
+					continue;
 				}
+				if (!isValidJsonpQueryParam(value)) {
+					if (logger.isDebugEnabled()) {
+						logger.debug("Ignoring invalid jsonp parameter value: " + value);
+					}
+					continue;
+				}
+				return value;
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Validate the jsonp query parameter value. The default implementation
+	 * returns true if it consists of digits, letters, or "_" and ".".
+	 * Invalid parameter values are ignored.
+	 * @param value the query param value, never {@code null}
+	 * @since 4.1.8
+	 */
+	protected boolean isValidJsonpQueryParam(String value) {
+		return CALLBACK_PARAM_PATTERN.matcher(value).matches();
 	}
 
 	/**
@@ -228,6 +253,7 @@ public class MappingJackson2JsonView extends AbstractJackson2View {
 			jsonpFunction = ((MappingJacksonValue) object).getJsonpFunction();
 		}
 		if (jsonpFunction != null) {
+			generator.writeRaw("/**/");
 			generator.writeRaw(jsonpFunction + "(" );
 		}
 	}

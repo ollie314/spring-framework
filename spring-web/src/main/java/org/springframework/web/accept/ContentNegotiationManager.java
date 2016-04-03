@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,6 +89,30 @@ public class ContentNegotiationManager implements ContentNegotiationStrategy,
 
 
 	/**
+	 * Return the configured content negotiation strategies.
+	 * @since 3.2.16
+	 */
+	public List<ContentNegotiationStrategy> getStrategies() {
+		return this.strategies;
+	}
+
+	/**
+	 * Find a {@code ContentNegotiationStrategy} of the given type.
+	 * @param strategyType the strategy type
+	 * @return the first matching strategy or {@code null}.
+	 * @since 4.3
+	 */
+	@SuppressWarnings("unchecked")
+	public <T extends ContentNegotiationStrategy> T getStrategy(Class<T> strategyType) {
+		for (ContentNegotiationStrategy strategy : getStrategies()) {
+			if (strategyType.isInstance(strategy)) {
+				return (T) strategy;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Register more {@code MediaTypeFileExtensionResolver} instances in addition
 	 * to those detected at construction.
 	 * @param resolvers the resolvers to add
@@ -120,6 +144,16 @@ public class ContentNegotiationManager implements ContentNegotiationStrategy,
 		return new ArrayList<String>(result);
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * <p>At startup this method returns extensions explicitly registered with
+	 * either {@link PathExtensionContentNegotiationStrategy} or
+	 * {@link ParameterContentNegotiationStrategy}. At runtime if there is a
+	 * "path extension" strategy and its
+	 * {@link PathExtensionContentNegotiationStrategy#setUseJaf(boolean)
+	 * useJaf} property is set to "true", the list of extensions may
+	 * increase as file extensions are resolved via JAF and cached.
+	 */
 	@Override
 	public List<String> getAllFileExtensions() {
 		Set<String> result = new LinkedHashSet<String>();

@@ -879,8 +879,8 @@ proxy will take care of forwarding the call to the server-side object via JMS.
 
 [[remoting-amqp]]
 === AMQP
-Refer to the http://docs.spring.io/spring-amqp/reference/html/amqp.html#remoting[Spring
-AMQP Reference Document 'Spring Remoting with AMQP' section] for more information.
+Refer to the {doc-spring-amqp}/html/_reference.html#remoting[Spring AMQP Reference Document
+'Spring Remoting with AMQP' section] for more information.
 
 
 
@@ -1004,33 +1004,33 @@ RestTemplate has an asynchronous counter-part: see <<rest-async-resttemplate>>.
 | HTTP Method | RestTemplate Method
 
 | DELETE
-| {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#delete(String,%20Object...)[delete]
+| {api-spring-framework}/web/client/RestTemplate.html#delete(String,%20Object...)[delete]
 
 | GET
-| {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#getForObject(String,%20Class,%20Object...)[getForObject]
-  {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#getForEntity(String,%20Class,%20Object...)[getForEntity]
+| {api-spring-framework}/web/client/RestTemplate.html#getForObject(String,%20Class,%20Object...)[getForObject]
+  {api-spring-framework}/web/client/RestTemplate.html#getForEntity(String,%20Class,%20Object...)[getForEntity]
 
 | HEAD
-| {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#headForHeaders(String,%20Object...)[headForHeaders(String
+| {api-spring-framework}/web/client/RestTemplate.html#headForHeaders(String,%20Object...)[headForHeaders(String
   url, String... urlVariables)]
 
 | OPTIONS
-| {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#optionsForAllow(String,%20Object...)[optionsForAllow(String
+| {api-spring-framework}/web/client/RestTemplate.html#optionsForAllow(String,%20Object...)[optionsForAllow(String
   url, String... urlVariables)]
 
 | POST
-| {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#postForLocation(String,%20Object,%20Object...)[postForLocation(String
+| {api-spring-framework}/web/client/RestTemplate.html#postForLocation(String,%20Object,%20Object...)[postForLocation(String
   url, Object request, String... urlVariables)]
-  {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#postForObject(java.lang.String,%20java.lang.Object,%20java.lang.Class,%20java.lang.String...)[postForObject(String
+  {api-spring-framework}/web/client/RestTemplate.html#postForObject(java.lang.String,%20java.lang.Object,%20java.lang.Class,%20java.lang.String...)[postForObject(String
   url, Object request, Class<T> responseType, String... uriVariables)]
 
 | PUT
-| {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#put(String,%20Object,%20Object...)[put(String
+| {api-spring-framework}/web/client/RestTemplate.html#put(String,%20Object,%20Object...)[put(String
   url, Object request, String...urlVariables)]
 
 | PATCH and others
-| {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#exchange(java.lang.String,%20org.springframework.http.HttpMethod,%20org.springframework.http.HttpEntity,%20java.lang.Class,%20java.lang.Object...)[exchange]
-  {javadoc-baseurl}/org/springframework/web/client/RestTemplate.html#execute(java.lang.String,%20org.springframework.http.HttpMethod,%20org.springframework.web.client.RequestCallback,%20org.springframework.web.client.ResponseExtractor,%20java.lang.Object...)[execute]
+| {api-spring-framework}/web/client/RestTemplate.html#exchange(java.lang.String,%20org.springframework.http.HttpMethod,%20org.springframework.http.HttpEntity,%20java.lang.Class,%20java.lang.Object...)[exchange]
+  {api-spring-framework}/web/client/RestTemplate.html#execute(java.lang.String,%20org.springframework.http.HttpMethod,%20org.springframework.web.client.RequestCallback,%20org.springframework.web.client.ResponseExtractor,%20java.lang.Object...)[execute]
 |===
 
 The names of `RestTemplate` methods follow a naming convention, the first part indicates
@@ -1374,7 +1374,7 @@ needs: multiple threads may be blocked, waiting for remote HTTP responses.
 `AsyncRestTemplate` and <<rest-resttemplate>>'s APIs are very similar; see
 <<rest-overview-of-resttemplate-methods-tbl>>. The main difference between those APIs is
 that `AsyncRestTemplate` returns
-{javadoc-baseurl}/org/springframework/util/concurrent/ListenableFuture.html[`ListenableFuture`]
+{api-spring-framework}/util/concurrent/ListenableFuture.html[`ListenableFuture`]
 wrappers as opposed to concrete results.
 
 The previous `RestTemplate` example translates to:
@@ -1390,7 +1390,7 @@ The previous `RestTemplate` example translates to:
 	ResponseEntity<String> entity = futureEntity.get();
 ----
 
-{javadoc-baseurl}/org/springframework/util/concurrent/ListenableFuture.html[`ListenableFuture`]
+{api-spring-framework}/util/concurrent/ListenableFuture.html[`ListenableFuture`]
 accepts completion callbacks:
 
 [source,java,indent=0]
@@ -1416,18 +1416,18 @@ accepts completion callbacks:
 [NOTE]
 ====
 The default `AsyncRestTemplate` constructor registers a
-{javadoc-baseurl}/org/springframework/core/task/SimpleAsyncTaskExecutor.html[`SimpleAsyncTaskExecutor`
+{api-spring-framework}/core/task/SimpleAsyncTaskExecutor.html[`SimpleAsyncTaskExecutor`
 ] for executing HTTP requests.
 When dealing with a large number of short-lived requests, a thread-pooling TaskExecutor
 implementation like
-{javadoc-baseurl}/org/springframework/scheduling/concurrent/ThreadPoolTaskExecutor.html[`ThreadPoolTaskExecutor`]
+{api-spring-framework}/scheduling/concurrent/ThreadPoolTaskExecutor.html[`ThreadPoolTaskExecutor`]
 may be a good choice.
 ====
 
 See the
-{javadoc-baseurl}/org/springframework/util/concurrent/ListenableFuture.html[`ListenableFuture` javadocs]
+{api-spring-framework}/util/concurrent/ListenableFuture.html[`ListenableFuture` javadocs]
 and
-{javadoc-baseurl}/org/springframework/web/client/AsyncRestTemplate.html[`AsyncRestTemplate` javadocs]
+{api-spring-framework}/web/client/AsyncRestTemplate.html[`AsyncRestTemplate` javadocs]
 for more details.
 
 
@@ -2602,7 +2602,9 @@ what the <<jms-receiving-async-message-listener-adapter, `MessageListenerAdapter
 provides).
 
 The annotated endpoint infrastructure creates a message listener container
-behind the scenes for each annotated method, using a `JmsListenerContainerFactory`.
+behind the scenes for each annotated method, using a `JmsListenerContainerFactory`. Such
+container is not registered against the application context but can be easily
+located for management purposes using the `JmsListenerEndpointRegistry` bean.
 
 TIP: `@JmsListener` is a _repeatable_ annotation so it is possible to associate several
 JMS destinations to the same method by adding additional `@JmsListener` declaration on
@@ -2793,6 +2795,9 @@ as follow to automatically send a response:
     	return status;
 	}
 ----
+
+TIP: If you have several `@JmsListener`-annotated methods, you can also place the `@SendTo`
+annotation at class-level to share a default reply destination.
 
 If you need to set additional headers in a transport-independent manner, you could return a
 `Message` instead, something like:
@@ -3502,6 +3507,9 @@ marked with the `ManagedOperation` annotation and each property you wish to expo
 be marked with the `ManagedAttribute` annotation. When marking properties you can omit
 either the annotation of the getter or the setter to create a write-only or read-only
 attribute respectively.
+
+NOTE: A `ManagedResource` annotated bean must be public as well as the methods exposing
+an operation or an attribute.
 
 The example below shows the annotated version of the `JmxTestBean` class that you saw
 earlier:
@@ -6402,13 +6410,13 @@ default). Here you can see what methods are available for `Trigger` implementati
 
 Spring provides two implementations of the `Trigger` interface. The most interesting one
 is the `CronTrigger`. It enables the scheduling of tasks based on cron expressions. For
-example the following task is being scheduled to run 15 minutes past each hour but only
+example, the following task is being scheduled to run 15 minutes past each hour but only
 during the 9-to-5 "business hours" on weekdays.
 
 [source,java,indent=0]
 [subs="verbatim"]
 ----
-	scheduler.schedule(task, new CronTrigger("* 15 9-17 * * MON-FRI"));
+	scheduler.schedule(task, new CronTrigger("0 15 9-17 * * MON-FRI"));
 ----
 
 The other out-of-the-box implementation is a `PeriodicTrigger` that accepts a fixed
@@ -6420,7 +6428,7 @@ fixed-delay, those methods should be used directly whenever possible. The value 
 the `Trigger` abstraction. For example, it may be convenient to allow periodic triggers,
 cron-based triggers, and even custom trigger implementations to be used interchangeably.
 Such a component could take advantage of dependency injection so that such `Triggers`
-could be configured externally.
+could be configured externally and therefore easily modified or extended.
 
 
 
@@ -7045,7 +7053,7 @@ seconds and one every morning at 6 AM. To finalize everything, we need to set up
 More properties are available for the `SchedulerFactoryBean` for you to set, such as the
 calendars used by the job details, properties to customize Quartz with, etc. Have a look
 at the
-{javadoc-baseurl}/org/springframework/scheduling/quartz/SchedulerFactoryBean.html[`SchedulerFactoryBean`
+{api-spring-framework}/scheduling/quartz/SchedulerFactoryBean.html[`SchedulerFactoryBean`
 javadocs] for more information.
 
 
@@ -8158,6 +8166,7 @@ materialized by the `org.springframework.cache.Cache` and
 There are <<cache-store-configuration,a few implementations>> of that abstraction
 available out of the box: JDK `java.util.concurrent.ConcurrentMap` based caches,
 http://ehcache.org/[EhCache], Gemfire cache,
+https://github.com/ben-manes/caffeine/wiki[Caffeine],
 https://code.google.com/p/guava-libraries/wiki/CachesExplained[Guava caches] and
 JSR-107 compliant caches. See <<cache-plug>> for more information on plugging in
 other cache stores/providers.
@@ -8460,10 +8469,10 @@ conditional computations:
 
 | __argument name__
 | evaluation context
-| Name of any of the method argument. If for some reason the names are not available
-  (ex: no debug information), the argument names are also available under the `a<#arg>`
+| Name of any of the method arguments. If for some reason the names are not available
+  (e.g. no debug information), the argument names are also available under the `#a<#arg>`
   where __#arg__ stands for the argument index (starting from 0).
-| `iban` or `a0` (one can also use `p0` or `p<#arg>` notation as an alias).
+| `#iban` or `#a0` (one can also use `#p0` or `#p<#arg>` notation as an alias).
 
 | result
 | evaluation context
@@ -8551,10 +8560,8 @@ and thus requires a result.
 
 There are cases when multiple annotations of the same type, such as `@CacheEvict` or
 `@CachePut` need to be specified, for example because the condition or the key
-expression is different between different caches. Unfortunately Java does not support
-such declarations however there is a workaround - using an __enclosing__ annotation, in
-this case, `@Caching`. `@Caching` allows multiple nested `@Cacheable`, `@CachePut` and
-`@CacheEvict` to be used on the same method:
+expression is different between different caches. `@Caching` allows multiple nested
+`@Cacheable`, `@CachePut` and `@CacheEvict` to be used on the same method:
 
 [source,java,indent=0]
 [subs="verbatim,quotes"]
@@ -8641,7 +8648,7 @@ application through AOP. The configuration is intentionally similar with that of
 [NOTE]
 ====
 Advanced customizations using Java config require to implement `CachingConfigurer`, refer
-to {javadoc-baseurl}/org/springframework/cache/annotation/CachingConfigurer.html[the
+to {api-spring-framework}/cache/annotation/CachingConfigurer.html[the
 javadoc for more details].
 ====
 
@@ -8812,7 +8819,7 @@ up its declaration at runtime and understands its meaning. Note that as mentione
 === JCache (JSR-107) annotations
 
 Since the Spring Framework 4.1, the caching abstraction fully supports the JCache
-standard annotations: these are `@CacheResult`, `@CacheEvict`, `@CacheRemove` and
+standard annotations: these are `@CacheResult`, `@CachePut`, `@CacheRemove` and
 `@CacheRemoveAll` as well as the `@CacheDefaults`, `@CacheKey` and `@CacheValue`
 companions. These annotations can be used right the way without migrating your
 cache store to JSR-107: the internal implementation uses Spring's caching abstraction
@@ -8994,7 +9001,7 @@ we did in the example above by defining the target cache through the `cache:defi
 
 [[cache-store-configuration]]
 === Configuring the cache storage
-Out of the box, the cache abstraction provides several storages integration. To use
+Out of the box, the cache abstraction provides several storage integration. To use
 them, one needs to simply declare an appropriate `CacheManager` - an entity that
 controls and manages ++Cache++s and can be used to retrieve these for storage.
 
@@ -9052,6 +9059,42 @@ This setup bootstraps the ehcache library inside Spring IoC (through the `ehcach
 is then wired into the dedicated `CacheManager` implementation. Note the entire
 ehcache-specific configuration is read from `ehcache.xml`.
 
+[[cache-store-configuration-caffeine]]
+==== Caffeine Cache
+
+Caffeine is a Java 8 rewrite of Guava's cache and its implementation is located under
+`org.springframework.cache.caffeine` package and provides access to several features
+of Caffeine.
+
+Configuring a `CacheManager` that creates the cache on demand is straightforward:
+
+[source,xml,indent=0]
+[subs="verbatim,quotes"]
+----
+	<bean id="cacheManager"
+	      class="org.springframework.cache.caffeine.CaffeineCacheManager"/>
+----
+
+It is also possible to provide the caches to use explicitly. In that case, only those
+will be made available by the manager:
+
+[source,xml,indent=0]
+[subs="verbatim,quotes"]
+----
+	<bean id="cacheManager" class="org.springframework.cache.caffeine.CaffeineCacheManager">
+		<property name="caches">
+			<set>
+				<value>default</value>
+				<value>books</value>
+			</set>
+		</property>
+	</bean>
+----
+
+The Caffeine `CacheManager` also supports customs `Caffeine` and `CacheLoader`. See
+the https://github.com/ben-manes/caffeine/wiki[Caffeine documentation] for more
+information about those.
+
 [[cache-store-configuration-guava]]
 ==== Guava Cache
 
@@ -9094,8 +9137,7 @@ GemFire is a memory-oriented/disk-backed, elastically scalable, continuously ava
 active (with built-in pattern-based subscription notifications), globally replicated
 database and provides fully-featured edge caching. For further information on how to use
 GemFire as a CacheManager (and more), please refer to the
-http://docs.spring.io/spring-gemfire/docs/current/reference/htmlsingle/[Spring Data GemFire
-reference documentation].
+{doc-spring-gemfire}/html/[Spring Data GemFire reference documentation].
 
 [[cache-store-configuration-jsr107]]
 ==== JSR-107 Cache

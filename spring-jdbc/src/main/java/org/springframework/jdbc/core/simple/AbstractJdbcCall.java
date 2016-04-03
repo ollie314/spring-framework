@@ -67,7 +67,7 @@ public abstract class AbstractJdbcCall {
 	 * Has this operation been compiled? Compilation means at least checking
 	 * that a DataSource or JdbcTemplate has been provided.
 	 */
-	private boolean compiled = false;
+	private volatile boolean compiled = false;
 
 	/** The generated string used for call statement */
 	private String callString;
@@ -191,26 +191,28 @@ public abstract class AbstractJdbcCall {
 	}
 
 	/**
-	 * Specify whether the parameter metadata for the call should be used.
-	 * The default is {@code true}.
+	 * Specify whether parameters should be bound by name.
+	 * The default is {@code false}.
+	 * @since 4.2
 	 */
-	public void setAccessCallParameterMetaData(boolean accessCallParameterMetaData) {
-		this.callMetaDataContext.setAccessCallParameterMetaData(accessCallParameterMetaData);
+	public void setNamedBinding(boolean namedBinding) {
+		this.callMetaDataContext.setNamedBinding(namedBinding);
 	}
 
 	/**
-	 * Does parameters should be bound by name?
+	 * Should parameters be bound by name?
+	 * @since 4.2
 	 */
 	public boolean isNamedBinding() {
 		return this.callMetaDataContext.isNamedBinding();
 	}
 
 	/**
-	 * Specify whether parameters should be bound by name.
-	 * The default is {@code false}.
+	 * Specify whether the parameter metadata for the call should be used.
+	 * The default is {@code true}.
 	 */
-	public void setNamedBinding(boolean namedBinding) {
-		this.callMetaDataContext.setNamedBinding(namedBinding);
+	public void setAccessCallParameterMetaData(boolean accessCallParameterMetaData) {
+		this.callMetaDataContext.setAccessCallParameterMetaData(accessCallParameterMetaData);
 	}
 
 	/**
@@ -329,7 +331,7 @@ public abstract class AbstractJdbcCall {
 
 	/**
 	 * Is this operation "compiled"?
-	 * @return whether this operation is compiled, and ready to use.
+	 * @return whether this operation is compiled and ready to use
 	 */
 	public boolean isCompiled() {
 		return this.compiled;

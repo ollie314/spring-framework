@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,10 @@ import org.springframework.tests.sample.beans.TestBean;
 import static org.junit.Assert.*;
 
 /**
- * @since 13.03.2003
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @author Chris Beams
+ * @since 13.03.2003
  */
 @SuppressWarnings("serial")
 public class JdkDynamicProxyTests extends AbstractAopProxyTests implements Serializable {
@@ -63,7 +63,7 @@ public class JdkDynamicProxyTests extends AbstractAopProxyTests implements Seria
 	public void testProxyIsJustInterface() throws Throwable {
 		TestBean raw = new TestBean();
 		raw.setAge(32);
-		AdvisedSupport pc = new AdvisedSupport(new Class<?>[] {ITestBean.class});
+		AdvisedSupport pc = new AdvisedSupport(ITestBean.class);
 		pc.setTarget(raw);
 		JdkDynamicAopProxy aop = new JdkDynamicAopProxy(pc);
 
@@ -78,7 +78,7 @@ public class JdkDynamicProxyTests extends AbstractAopProxyTests implements Seria
 		final int age = 25;
 		MethodInterceptor mi = (invocation -> age);
 
-		AdvisedSupport pc = new AdvisedSupport(new Class<?>[] {ITestBean.class});
+		AdvisedSupport pc = new AdvisedSupport(ITestBean.class);
 		pc.addAdvice(mi);
 		AopProxy aop = createAopProxy(pc);
 
@@ -97,7 +97,7 @@ public class JdkDynamicProxyTests extends AbstractAopProxyTests implements Seria
 			}
 		};
 
-		AdvisedSupport pc = new AdvisedSupport(new Class<?>[] {ITestBean.class, IOther.class});
+		AdvisedSupport pc = new AdvisedSupport(ITestBean.class, IOther.class);
 		pc.addAdvice(ExposeInvocationInterceptor.INSTANCE);
 		TrapTargetInterceptor tii = new TrapTargetInterceptor() {
 			@Override
@@ -129,13 +129,20 @@ public class JdkDynamicProxyTests extends AbstractAopProxyTests implements Seria
 
 	@Test
 	public void testEqualsAndHashCodeDefined() throws Exception {
-		AdvisedSupport as = new AdvisedSupport(new Class<?>[]{Named.class});
+		AdvisedSupport as = new AdvisedSupport(Named.class);
 		as.setTarget(new Person());
 		JdkDynamicAopProxy aopProxy = new JdkDynamicAopProxy(as);
 		Named proxy = (Named) aopProxy.getProxy();
 		Named named = new Person();
 		assertEquals("equals()", proxy, named);
 		assertEquals("hashCode()", proxy.hashCode(), named.hashCode());
+	}
+
+	@Test  // SPR-13328
+	public void testVarargsWithEnumArray() throws Exception {
+		ProxyFactory proxyFactory = new ProxyFactory(new VarargTestBean());
+		VarargTestInterface proxy = (VarargTestInterface) proxyFactory.getProxy();
+		assertTrue(proxy.doWithVarargs(MyEnum.A, MyOtherEnum.C));
 	}
 
 
@@ -199,6 +206,38 @@ public class JdkDynamicProxyTests extends AbstractAopProxyTests implements Seria
 		public int hashCode() {
 			return name.hashCode();
 		}
+	}
+
+
+	public interface VarargTestInterface {
+
+		<V extends MyInterface> boolean doWithVarargs(V... args);
+	}
+
+
+	public static class VarargTestBean implements VarargTestInterface {
+
+		@SuppressWarnings("unchecked")
+		@Override
+		public <V extends MyInterface> boolean doWithVarargs(V... args) {
+			return true;
+		}
+	}
+
+
+	public interface MyInterface {
+	}
+
+
+	public enum MyEnum implements MyInterface {
+
+		A, B;
+	}
+
+
+	public enum MyOtherEnum implements MyInterface {
+
+		C, D;
 	}
 
 }

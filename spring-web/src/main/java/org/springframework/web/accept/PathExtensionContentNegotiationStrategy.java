@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.apache.commons.logging.LogFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
+import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
@@ -66,7 +67,8 @@ public class PathExtensionContentNegotiationStrategy
 		PATH_HELPER.setUrlDecode(false);
 	}
 
-	private boolean useJaf = JAF_PRESENT;
+
+	private boolean useJaf = true;
 
 	private boolean ignoreUnknownExtensions = true;
 
@@ -89,8 +91,7 @@ public class PathExtensionContentNegotiationStrategy
 
 	/**
 	 * Whether to use the Java Activation Framework to look up file extensions.
-	 * <p>By default if this property is not set JAF is present on the
-	 * classpath it will be used.
+	 * <p>By default this is set to "true" but depends on JAF being present.
 	 */
 	public void setUseJaf(boolean useJaf) {
 		this.useJaf = useJaf;
@@ -123,7 +124,7 @@ public class PathExtensionContentNegotiationStrategy
 	protected MediaType handleNoMatch(NativeWebRequest webRequest, String extension)
 			throws HttpMediaTypeNotAcceptableException {
 
-		if (this.useJaf) {
+		if (this.useJaf && JAF_PRESENT) {
 			MediaType mediaType = JafMediaTypeFactory.getMediaType("file." + extension);
 			if (mediaType != null && !MediaType.APPLICATION_OCTET_STREAM.equals(mediaType)) {
 				return mediaType;
@@ -133,6 +134,32 @@ public class PathExtensionContentNegotiationStrategy
 			return null;
 		}
 		throw new HttpMediaTypeNotAcceptableException(getAllMediaTypes());
+	}
+
+	/**
+	 * A public method exposing the knowledge of the path extension strategy to
+	 * resolve file extensions to a MediaType in this case for a given
+	 * {@link Resource}. The method first looks up any explicitly registered
+	 * file extensions first and then falls back on JAF if available.
+	 * @param resource the resource to look up
+	 * @return the MediaType for the extension or {@code null}.
+	 * @since 4.3
+	 */
+	public MediaType getMediaTypeForResource(Resource resource) {
+		Assert.notNull(resource);
+		MediaType mediaType = null;
+		String filename = resource.getFilename();
+		String extension = StringUtils.getFilenameExtension(filename);
+		if (extension != null) {
+			mediaType = lookupMediaType(extension);
+		}
+		if (mediaType == null && JAF_PRESENT) {
+			mediaType = JafMediaTypeFactory.getMediaType(filename);
+		}
+		if (MediaType.APPLICATION_OCTET_STREAM.equals(mediaType)) {
+			mediaType = null;
+		}
+		return mediaType;
 	}
 
 
