@@ -735,7 +735,7 @@ public class RestTemplate extends InterceptingHttpAccessor implements RestOperat
 			List<MediaType> supportedMediaTypes = messageConverter.getSupportedMediaTypes();
 			List<MediaType> result = new ArrayList<MediaType>(supportedMediaTypes.size());
 			for (MediaType supportedMediaType : supportedMediaTypes) {
-				if (supportedMediaType.getCharSet() != null) {
+				if (supportedMediaType.getCharset() != null) {
 					supportedMediaType =
 							new MediaType(supportedMediaType.getType(), supportedMediaType.getSubtype());
 				}
@@ -780,7 +780,7 @@ public class RestTemplate extends InterceptingHttpAccessor implements RestOperat
 				if (!requestHeaders.isEmpty()) {
 					httpHeaders.putAll(requestHeaders);
 				}
-				if (httpHeaders.getContentLength() == -1) {
+				if (httpHeaders.getContentLength() < 0) {
 					httpHeaders.setContentLength(0L);
 				}
 			}
