@@ -30,12 +30,13 @@ import org.apache.commons.logging.LogFactory;
 
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpRange;
-import org.springframework.http.HttpRangeResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.ResourceHttpMessageConverter;
+import org.springframework.http.converter.ResourceRegionHttpMessageConverter;
 import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.util.Assert;
@@ -105,6 +106,8 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 
 	private ResourceHttpMessageConverter resourceHttpMessageConverter;
 
+	private ResourceRegionHttpMessageConverter resourceRegionHttpMessageConverter;
+
 	private ContentNegotiationManager contentNegotiationManager;
 
 	private CorsConfiguration corsConfiguration;
@@ -116,7 +119,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 
 
 	/**
-	 * Set a {@code List} of {@code Resource} paths to use as sources
+	 * Set the {@code List} of {@code Resource} paths to use as sources
 	 * for serving static resources.
 	 */
 	public void setLocations(List<Resource> locations) {
@@ -125,6 +128,10 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 		this.locations.addAll(locations);
 	}
 
+	/**
+	 * Return the {@code List} of {@code Resource} paths to use as sources
+	 * for serving static resources.
+	 */
 	public List<Resource> getLocations() {
 		return this.locations;
 	}
@@ -175,8 +182,29 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 		this.resourceHttpMessageConverter = resourceHttpMessageConverter;
 	}
 
+	/**
+	 * Return the list of configured resource converters.
+	 * @since 4.3
+	 */
 	public ResourceHttpMessageConverter getResourceHttpMessageConverter() {
 		return this.resourceHttpMessageConverter;
+	}
+
+	/**
+	 * Configure the {@link ResourceRegionHttpMessageConverter} to use.
+	 * <p>By default a {@link ResourceRegionHttpMessageConverter} will be configured.
+	 * @since 4.3
+	 */
+	public void setResourceRegionHttpMessageConverter(ResourceRegionHttpMessageConverter resourceRegionHttpMessageConverter) {
+		this.resourceRegionHttpMessageConverter = resourceRegionHttpMessageConverter;
+	}
+
+	/**
+	 * Return the list of configured resource region converters.
+	 * @since 4.3
+	 */
+	public ResourceRegionHttpMessageConverter getResourceRegionHttpMessageConverter() {
+		return this.resourceRegionHttpMessageConverter;
 	}
 
 	/**
@@ -197,6 +225,10 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 		this.contentNegotiationManager = contentNegotiationManager;
 	}
 
+	/**
+	 * Return the specified content negotiation manager.
+	 * @since 4.3
+	 */
 	public ContentNegotiationManager getContentNegotiationManager() {
 		return this.contentNegotiationManager;
 	}
@@ -209,6 +241,9 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 		this.corsConfiguration = corsConfiguration;
 	}
 
+	/**
+	 * Return the specified CORS configuration.
+	 */
 	@Override
 	public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
 		return this.corsConfiguration;
@@ -225,12 +260,14 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 			this.resourceResolvers.add(new PathResourceResolver());
 		}
 		initAllowedLocations();
-
 		if (this.contentNegotiationManager == null) {
 			this.contentNegotiationManager = initContentNegotiationManager();
 		}
 		if (this.resourceHttpMessageConverter == null) {
 			this.resourceHttpMessageConverter = new ResourceHttpMessageConverter();
+		}
+		if(this.resourceRegionHttpMessageConverter == null) {
+			this.resourceRegionHttpMessageConverter = new ResourceRegionHttpMessageConverter();
 		}
 	}
 
@@ -333,15 +370,22 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 			this.resourceHttpMessageConverter.write(resource, mediaType, outputMessage);
 		}
 		else {
+			response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
 			ServletServerHttpRequest inputMessage = new ServletServerHttpRequest(request);
 			try {
 				List<HttpRange> httpRanges = inputMessage.getHeaders().getRange();
-				HttpRangeResource rangeResource = new HttpRangeResource(httpRanges, resource);
 				response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
-				this.resourceHttpMessageConverter.write(rangeResource, mediaType, outputMessage);
+				if(httpRanges.size() == 1) {
+					ResourceRegion resourceRegion = httpRanges.get(0).toResourceRegion(resource);
+					this.resourceRegionHttpMessageConverter.write(resourceRegion, mediaType, outputMessage);
+				}
+				else {
+					this.resourceRegionHttpMessageConverter.write(
+							HttpRange.toResourceRegions(httpRanges, resource), mediaType, outputMessage);
+				}
 			}
 			catch (IllegalArgumentException ex) {
-				response.addHeader("Content-Range", "bytes */" + resource.contentLength());
+				response.setHeader("Content-Range", "bytes */" + resource.contentLength());
 				response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
 			}
 		}

@@ -1026,8 +1026,8 @@ All matrix variables may be obtained in a Map:
 
 	@RequestMapping(path = "/owners/{ownerId}/pets/{petId}", method = RequestMethod.GET)
 	public void findPet(
-			@MatrixVariable Map<String, String> matrixVars,
-			@MatrixVariable(pathVar="petId"") Map<String, String> petMatrixVars) {
+			@MatrixVariable MultiValueMap<String, String> matrixVars,
+			@MatrixVariable(pathVar="petId"") MultiValueMap<String, String> petMatrixVars) {
 
 		// matrixVars: ["q" : [11,22], "r" : 12, "s" : 23]
 		// petMatrixVars: ["q" : 11, "s" : 23]
@@ -4688,9 +4688,9 @@ the MVC Java config and the MVC XML namespace.
 
 The MVC Java config and the MVC namespace provide similar default configuration that
 overrides the `DispatcherServlet` defaults. The goal is to spare most applications from
-having to having to create the same configuration and also to provide higher-level
-constructs for configuring Spring MVC that serve as a simple starting point and require
-little or no prior knowledge of the underlying configuration.
+having to create the same configuration and also to provide higher-level constructs for
+configuring Spring MVC that serve as a simple starting point and require little or no
+prior knowledge of the underlying configuration.
 
 You can choose either the MVC Java config or the MVC namespace depending on your
 preference. Also as you will see further below, with the MVC Java config it is easier to

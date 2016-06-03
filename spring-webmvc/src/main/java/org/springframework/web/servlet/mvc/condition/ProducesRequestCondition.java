@@ -26,6 +26,7 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.http.MediaType;
+import org.springframework.web.HttpMediaTypeException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.accept.ContentNegotiationManager;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,6 +48,8 @@ import org.springframework.web.servlet.mvc.condition.HeadersRequestCondition.Hea
 public final class ProducesRequestCondition extends AbstractRequestCondition<ProducesRequestCondition> {
 
 	private final static ProducesRequestCondition PRE_FLIGHT_MATCH = new ProducesRequestCondition();
+
+	private static final ProducesRequestCondition EMPTY_CONDITION = new ProducesRequestCondition();
 
 
 	private final List<ProduceMediaTypeExpression> MEDIA_TYPE_ALL_LIST =
@@ -186,14 +189,29 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 		if (isEmpty()) {
 			return this;
 		}
+		List<MediaType> acceptedMediaTypes;
+		try {
+			acceptedMediaTypes = getAcceptedMediaTypes(request);
+		}
+		catch (HttpMediaTypeException ex) {
+			return null;
+		}
 		Set<ProduceMediaTypeExpression> result = new LinkedHashSet<ProduceMediaTypeExpression>(expressions);
 		for (Iterator<ProduceMediaTypeExpression> iterator = result.iterator(); iterator.hasNext();) {
 			ProduceMediaTypeExpression expression = iterator.next();
-			if (!expression.match(request)) {
+			if (!expression.match(acceptedMediaTypes)) {
 				iterator.remove();
 			}
 		}
-		return (result.isEmpty()) ? null : new ProducesRequestCondition(result, this.contentNegotiationManager);
+		if (!result.isEmpty()) {
+			return new ProducesRequestCondition(result, this.contentNegotiationManager);
+		}
+		else if (acceptedMediaTypes.contains(MediaType.ALL)) {
+			return EMPTY_CONDITION;
+		}
+		else {
+			return null;
+		}
 	}
 
 	/**
@@ -302,9 +320,12 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 			super(expression);
 		}
 
-		@Override
-		protected boolean matchMediaType(HttpServletRequest request) throws HttpMediaTypeNotAcceptableException {
-			List<MediaType> acceptedMediaTypes = getAcceptedMediaTypes(request);
+		public final boolean match(List<MediaType> acceptedMediaTypes) {
+			boolean match = matchMediaType(acceptedMediaTypes);
+			return (!isNegated() ? match : !match);
+		}
+
+		private boolean matchMediaType(List<MediaType> acceptedMediaTypes) {
 			for (MediaType acceptedMediaType : acceptedMediaTypes) {
 				if (getMediaType().isCompatibleWith(acceptedMediaType)) {
 					return true;

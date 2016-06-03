@@ -20,7 +20,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 import org.junit.After;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -55,6 +54,7 @@ public class TransactionalTestExecutionListenerTests {
 
 	private final TransactionalTestExecutionListener listener = new TransactionalTestExecutionListener() {
 
+		@Override
 		protected PlatformTransactionManager getTransactionManager(TestContext testContext, String qualifier) {
 			return tm;
 		}
@@ -82,7 +82,7 @@ public class TransactionalTestExecutionListenerTests {
 		given(testContext.getTestInstance()).willReturn(instance);
 		given(testContext.getTestMethod()).willReturn(clazz.getDeclaredMethod("transactionalTest"));
 
-		assertFalse("callback not have been invoked", instance.invoked());
+		assertFalse("callback should not have been invoked", instance.invoked());
 		TransactionContextHolder.removeCurrentTransactionContext();
 		listener.beforeTestMethod(testContext);
 		assertEquals(invokedInTx, instance.invoked());
@@ -95,10 +95,10 @@ public class TransactionalTestExecutionListenerTests {
 		given(testContext.getTestInstance()).willReturn(instance);
 		given(testContext.getTestMethod()).willReturn(clazz.getDeclaredMethod("nonTransactionalTest"));
 
-		assertFalse("callback not have been invoked", instance.invoked());
+		assertFalse("callback should not have been invoked", instance.invoked());
 		TransactionContextHolder.removeCurrentTransactionContext();
 		listener.beforeTestMethod(testContext);
-		assertFalse("callback not have been invoked", instance.invoked());
+		assertFalse("callback should not have been invoked", instance.invoked());
 	}
 
 	private void assertAfterTestMethod(Class<? extends Invocable> clazz) throws Exception {
@@ -114,10 +114,10 @@ public class TransactionalTestExecutionListenerTests {
 
 		given(tm.getTransaction(BDDMockito.any(TransactionDefinition.class))).willReturn(new SimpleTransactionStatus());
 
-		assertFalse("callback not have been invoked", instance.invoked());
+		assertFalse("callback should not have been invoked", instance.invoked());
 		TransactionContextHolder.removeCurrentTransactionContext();
 		listener.beforeTestMethod(testContext);
-		assertFalse("callback not have been invoked", instance.invoked());
+		assertFalse("callback should not have been invoked", instance.invoked());
 		listener.afterTestMethod(testContext);
 		assertTrue("callback should have been invoked", instance.invoked());
 	}
@@ -128,11 +128,11 @@ public class TransactionalTestExecutionListenerTests {
 		given(testContext.getTestInstance()).willReturn(instance);
 		given(testContext.getTestMethod()).willReturn(clazz.getDeclaredMethod("nonTransactionalTest"));
 
-		assertFalse("callback not have been invoked", instance.invoked());
+		assertFalse("callback should not have been invoked", instance.invoked());
 		TransactionContextHolder.removeCurrentTransactionContext();
 		listener.beforeTestMethod(testContext);
 		listener.afterTestMethod(testContext);
-		assertFalse("callback not have been invoked", instance.invoked());
+		assertFalse("callback should not have been invoked", instance.invoked());
 	}
 
 	private void assertTransactionConfigurationAttributes(Class<?> clazz, String transactionManagerName,
@@ -175,7 +175,7 @@ public class TransactionalTestExecutionListenerTests {
 		given(testContext.getTestInstance()).willReturn(instance);
 		given(testContext.getTestMethod()).willReturn(clazz.getDeclaredMethod("transactionalTest"));
 
-		assertFalse("callback not have been invoked", instance.invoked());
+		assertFalse("callback should not have been invoked", instance.invoked());
 		TransactionContextHolder.removeCurrentTransactionContext();
 
 		try {
@@ -245,13 +245,11 @@ public class TransactionalTestExecutionListenerTests {
 		assertAfterTestMethod(AfterTransactionDeclaredViaMetaAnnotationTestCase.class);
 	}
 
-	@Ignore("Disabled until @BeforeTransaction is supported on interface default methods")
 	@Test
 	public void beforeTestMethodWithBeforeTransactionDeclaredAsInterfaceDefaultMethod() throws Exception {
 		assertBeforeTestMethod(BeforeTransactionDeclaredAsInterfaceDefaultMethodTestCase.class);
 	}
 
-	@Ignore("Disabled until @AfterTransaction is supported on interface default methods")
 	@Test
 	public void afterTestMethodWithAfterTransactionDeclaredAsInterfaceDefaultMethod() throws Exception {
 		assertAfterTestMethod(AfterTransactionDeclaredAsInterfaceDefaultMethodTestCase.class);
@@ -354,6 +352,16 @@ public class TransactionalTestExecutionListenerTests {
 	@Test
 	public void isRollbackWithClassLevelRollbackViaMetaAnnotation() throws Exception {
 		assertIsRollback(ClassLevelRollbackViaMetaAnnotationTestCase.class, false);
+	}
+
+	@Test
+	public void isRollbackWithClassLevelRollbackWithExplicitValueOnTestInterface() throws Exception {
+		assertIsRollback(ClassLevelRollbackWithExplicitValueOnTestInterfaceTestCase.class, false);
+	}
+
+	@Test
+	public void isRollbackWithClassLevelRollbackViaMetaAnnotationOnTestInterface() throws Exception {
+		assertIsRollback(ClassLevelRollbackViaMetaAnnotationOnTestInterfaceTestCase.class, false);
 	}
 
 	@Test
@@ -710,6 +718,27 @@ public class TransactionalTestExecutionListenerTests {
 
 	@Commit
 	static class ClassLevelRollbackViaMetaAnnotationTestCase {
+
+		public void test() {
+		}
+	}
+
+	@Rollback(false)
+	interface RollbackFalseTestInterface {
+	}
+
+	static class ClassLevelRollbackWithExplicitValueOnTestInterfaceTestCase implements RollbackFalseTestInterface {
+
+		public void test() {
+		}
+	}
+
+	@Commit
+	interface RollbackFalseViaMetaAnnotationTestInterface {
+	}
+
+	static class ClassLevelRollbackViaMetaAnnotationOnTestInterfaceTestCase
+			implements RollbackFalseViaMetaAnnotationTestInterface {
 
 		public void test() {
 		}

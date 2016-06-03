@@ -34,6 +34,7 @@ import org.springframework.http.HttpRequest;
 import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UrlPathHelper;
@@ -44,10 +45,11 @@ import org.springframework.web.util.UrlPathHelper;
  * {@link HttpServletRequest#getServerPort() getServerPort()},
  * {@link HttpServletRequest#getScheme() getScheme()}, and
  * {@link HttpServletRequest#isSecure() isSecure()} methods with values derived
- * from "Fowarded" or "X-Forwarded-*" headers. In effect the wrapped request
+ * from "Forwarded" or "X-Forwarded-*" headers. In effect the wrapped request
  * reflects the client-originated protocol and address.
  *
  * @author Rossen Stoyanchev
+ * @author Eddú Meléndez
  * @since 4.3
  */
 public class ForwardedHeaderFilter extends OncePerRequestFilter {
@@ -55,29 +57,32 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 	private static final Set<String> FORWARDED_HEADER_NAMES;
 
 	static {
-		FORWARDED_HEADER_NAMES = new HashSet<String>(4);
+		FORWARDED_HEADER_NAMES = new HashSet<String>(5);
 		FORWARDED_HEADER_NAMES.add("Forwarded");
 		FORWARDED_HEADER_NAMES.add("X-Forwarded-Host");
 		FORWARDED_HEADER_NAMES.add("X-Forwarded-Port");
 		FORWARDED_HEADER_NAMES.add("X-Forwarded-Proto");
+		FORWARDED_HEADER_NAMES.add("X-Forwarded-Prefix");
 	}
 
 
 	private ContextPathHelper contextPathHelper;
 
 
-
 	/**
-	 * Configure a contextPath value that will replace the contextPath of
-	 * proxy-forwarded requests.
-	 * <p>This is useful when external clients are not aware of the application
-	 * context path. However a proxy forwards the request to a URL that includes
-	 * a contextPath.
+	 * Configure a context path override that will replace the context path of
+	 * proxy-forwarded requests. This is useful when external clients are not
+	 * aware of the application context path to which the proxy is configured
+	 * to forward to.
+	 * <p>For example, a client may connect to a proxy at:<br>
+	 * {@code https://example.com/}
+	 * <p>In turn the proxy forwards to the application at:<br>
+	 * {@code 192.168.1.1:8080/example/}
 	 * @param contextPath the context path; the given value will be sanitized to
 	 * ensure it starts with a '/' but does not end with one, or if the context
 	 * path is empty (default, root context) it is left as-is.
 	 */
-	public void setContextPath(String contextPath) {
+	public void setContextPathOverride(String contextPath) {
 		Assert.notNull(contextPath, "'contextPath' must not be null");
 		this.contextPathHelper = new ContextPathHelper(contextPath);
 	}
@@ -143,11 +148,20 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 			this.host = uriComponents.getHost();
 			this.port = (port == -1 ? (this.secure ? 443 : 80) : port);
 
-			this.contextPath = (pathHelper != null ? pathHelper.getContextPath(request) : request.getContextPath());
-			this.requestUri = (pathHelper != null ? pathHelper.getRequestUri(request) : request.getRequestURI());
+			this.contextPath = initContextPath(request, pathHelper);
+			this.requestUri = initRequestUri(request, pathHelper);
 			this.requestUrl = initRequestUrl(this.scheme, this.host, port, this.requestUri);
-
 			this.headers = initHeaders(request);
+		}
+
+		private static String initContextPath(HttpServletRequest request, ContextPathHelper pathHelper) {
+			String contextPath = (pathHelper != null ? pathHelper.getContextPath(request) : request.getContextPath());
+			return prependForwardedPrefix(request, contextPath);
+		}
+
+		private static String initRequestUri(HttpServletRequest request, ContextPathHelper pathHelper) {
+			String requestUri = (pathHelper != null ? pathHelper.getRequestUri(request) : request.getRequestURI());
+			return prependForwardedPrefix(request, requestUri);
 		}
 
 		private static StringBuffer initRequestUrl(String scheme, String host, int port, String path) {
@@ -174,6 +188,16 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 			return headers;
 		}
 
+		private static String prependForwardedPrefix(HttpServletRequest request, String value) {
+			String header = request.getHeader("X-Forwarded-Prefix");
+			if (StringUtils.hasText(header)) {
+				while (header.endsWith("/")) {
+					header = header.substring(0, header.length() - 1);
+				}
+				value = header + value;
+			}
+			return value;
+		}
 
 		@Override
 		public String getScheme() {
@@ -271,7 +295,7 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 			if (this.contextPath.equals("/") && pathWithinApplication.startsWith("/")) {
 				return pathWithinApplication;
 			}
-			return this.contextPath + pathWithinApplication;
+			return (this.contextPath + pathWithinApplication);
 		}
 	}
 

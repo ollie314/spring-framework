@@ -32,13 +32,13 @@ configure(allprojects) { project ->
 	version = qualifyVersionIfNecessary(version)
 
 	ext.aspectjVersion       = "1.8.9"
-	ext.caffeineVersion      = "2.2.7"
+	ext.caffeineVersion      = "2.3.0"
 	ext.eclipselinkVersion   = "2.4.2"
-	ext.ehcacheVersion       = "2.10.1"
+	ext.ehcacheVersion       = "2.10.2"
 	ext.ehcachejcacheVersion = "1.0.1"
-	ext.ehcache3Version      = "3.0.0"
-	ext.ejbApiVersion        = "3.0"
-	ext.fileuploadVersion    = "1.3.1"
+	ext.ehcache3Version      = "3.0.1"
+	ext.ejbVersion           = "3.0"
+	ext.fileuploadVersion    = "1.3.2"
 	ext.freemarkerVersion    = "2.3.23"
 	ext.groovyVersion        = "2.4.6"
 	ext.gsonVersion          = "2.6.2"
@@ -46,41 +46,36 @@ configure(allprojects) { project ->
 	ext.hamcrestVersion      = "1.3"
 	ext.hibernate3Version    = "3.6.10.Final"
 	ext.hibernate4Version    = "4.3.11.Final"
-	ext.hibernate5Version    = "5.1.0.Final"
+	ext.hibernate5Version    = "5.2.0.Final"
 	ext.hibval4Version       = "4.3.2.Final"
 	ext.hibval5Version       = "5.2.4.Final"
-	ext.hsqldbVersion        = "2.3.3"
-	ext.htmlunitVersion      = "2.20"
+	ext.hsqldbVersion        = "2.3.4"
 	ext.httpasyncVersion     = "4.1.1"
 	ext.httpclientVersion    = "4.5.2"
-	ext.jackson2Version      = "2.7.3"
+	ext.jackson2Version      = "2.7.4"
 	ext.jasperreportsVersion = "6.2.1"
 	ext.javamailVersion      = "1.5.5"
-	ext.jettyVersion         = "9.3.8.v20160314"
-	ext.jodaVersion          = "2.9.3"
-	ext.jrubyVersion         = "1.7.24"  // JRuby 9000 only supported through JSR-223 (StandardScriptFactory)
-	ext.jsonassertVersion    = "1.3.0"
-	ext.jsonpathVersion      = "2.2.0"
+	ext.jettyVersion         = "9.3.9.v20160517"
+	ext.jodaVersion          = "2.9.4"
+	ext.jrubyVersion         = "1.7.25"  // JRuby 9000 only supported through JSR-223 (StandardScriptFactory)
 	ext.jtaVersion           = "1.2"
 	ext.junitVersion         = "4.12"
-	ext.nettyVersion         = "4.1.0.CR7"
+	ext.nettyVersion         = "4.1.0.Final"
 	ext.okhttpVersion        = "2.7.5"
-	ext.okhttp3Version       = "3.2.0"
+	ext.okhttp3Version       = "3.3.1"
 	ext.openjpaVersion       = "2.4.1"
 	ext.poiVersion           = "3.14"
-	ext.reactorVersion       = "2.0.7.RELEASE"
+	ext.reactorVersion       = "2.0.8.RELEASE"
 	ext.romeVersion          = "1.6.0"
-	ext.seleniumVersion      = "2.53.0"
 	ext.slf4jVersion         = "1.7.21"
 	ext.snakeyamlVersion     = "1.17"
 	ext.snifferVersion       = "1.15"
 	ext.testngVersion        = "6.9.10"
 	ext.tiles2Version        = "2.2.2"
 	ext.tiles3Version        = "3.0.5"
-	ext.tomcatVersion        = "8.0.33"
+	ext.tomcatVersion        = "8.5.2"
 	ext.tyrusVersion         = "1.3.5"  // constrained by WebLogic 12.1.3 support
-	ext.undertowVersion      = "1.3.21.Final"
-	ext.woodstoxVersion      = "5.0.2"
+	ext.undertowVersion      = "1.3.22.Final"
 	ext.xmlunitVersion       = "1.6"
 	ext.xstreamVersion       = "1.4.9"
 
@@ -290,12 +285,12 @@ project("spring-build-src") {
 project("spring-core") {
 	description = "Spring Core"
 
-	// As of Spring 4.0.3, spring-core includes asm 5.0 and repackages cglib 3.2, inlining
-	// both into the spring-core jar. cglib 3.2 itself depends on asm 5.0 and is therefore
+	// As of Spring 4.0.3, spring-core includes asm 5.x and repackages cglib 3.2, inlining
+	// both into the spring-core jar. cglib 3.2 itself depends on asm 5.x and is therefore
 	// further transformed by the JarJar task to depend on org.springframework.asm; this
 	// avoids including two different copies of asm unnecessarily.
 	def cglibVersion = "3.2.2"
-	def objenesisVersion = "2.2"
+	def objenesisVersion = "2.4"
 
 	configurations {
 		jarjar
@@ -355,11 +350,11 @@ project("spring-core") {
 		compile("commons-logging:commons-logging:1.2")
 		optional("commons-codec:commons-codec:1.10")
 		optional("org.aspectj:aspectjweaver:${aspectjVersion}")
-		optional("net.sf.jopt-simple:jopt-simple:5.0")
+		optional("net.sf.jopt-simple:jopt-simple:5.0.1")
 		optional("log4j:log4j:1.2.17")
 		testCompile("org.apache.tomcat.embed:tomcat-embed-core:${tomcatVersion}")
 		testCompile("xmlunit:xmlunit:${xmlunitVersion}")
-		testCompile("com.fasterxml.woodstox:woodstox-core:${woodstoxVersion}") {
+		testCompile("com.fasterxml.woodstox:woodstox-core:5.0.2") {
 			exclude group: "stax", module: "stax-api"
 		}
 	}
@@ -389,7 +384,7 @@ project("spring-beans") {
 		optional("org.yaml:snakeyaml:${snakeyamlVersion}")
 		testCompile("log4j:log4j:1.2.17")
 		testCompile("org.apache.tomcat.embed:tomcat-embed-core:${tomcatVersion}")
-    }
+	}
 }
 
 project("spring-beans-groovy") {
@@ -479,7 +474,7 @@ project("spring-context") {
 		compile(files(project(":spring-core").cglibRepackJar))
 		optional(project(":spring-instrument"))
 		optional("javax.inject:javax.inject:1")
-		optional("javax.ejb:ejb-api:${ejbApiVersion}")
+		optional("javax.ejb:ejb-api:${ejbVersion}")
 		optional("javax.enterprise.concurrent:javax.enterprise.concurrent-api:1.0")
 		optional("javax.money:money-api:1.0")
 		optional("org.eclipse.persistence:javax.persistence:2.0.0")
@@ -491,7 +486,7 @@ project("spring-context") {
 		optional("org.beanshell:bsh:2.0b4")
 		optional("org.jruby:jruby:${jrubyVersion}")
 		testCompile("javax.inject:javax.inject-tck:1")
-		testCompile("org.javamoney:moneta:1.0")
+		testCompile("org.javamoney:moneta:1.1")
 		testCompile("commons-dbcp:commons-dbcp:1.4")
 		testCompile("org.apache.commons:commons-pool2:2.4.2")
 		testCompile("org.slf4j:slf4j-api:${slf4jVersion}")
@@ -549,7 +544,7 @@ project("spring-tx") {
 		optional(project(":spring-context"))  // for JCA, @EnableTransactionManagement
 		optional("javax.transaction:javax.transaction-api:${jtaVersion}")
 		optional("javax.resource:connector-api:1.5")
-		optional("javax.ejb:ejb-api:${ejbApiVersion}")
+		optional("javax.ejb:ejb-api:${ejbVersion}")
 		optional("com.ibm.websphere:uow:6.0.2.17")
 		testCompile("org.aspectj:aspectjweaver:${aspectjVersion}")
 		testCompile("org.eclipse.persistence:javax.persistence:2.0.0")
@@ -626,7 +621,7 @@ project("spring-jdbc") {
 		optional("javax.transaction:javax.transaction-api:${jtaVersion}")
 		optional("com.mchange:c3p0:0.9.5.2")
 		optional("org.hsqldb:hsqldb:${hsqldbVersion}")
-		optional("com.h2database:h2:1.4.191")
+		optional("com.h2database:h2:1.4.192")
 		optional("org.apache.derby:derby:10.12.1.1")
 		optional("org.apache.derby:derbyclient:10.12.1.1")
 	}
@@ -646,7 +641,7 @@ project("spring-context-support") {
 		optional("com.google.guava:guava:${guavaVersion}")
 		optional("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
 		optional("net.sf.ehcache:ehcache:${ehcacheVersion}")
-		optional("org.quartz-scheduler:quartz:2.2.2")
+		optional("org.quartz-scheduler:quartz:2.2.3")
 		optional("org.codehaus.fabric3.api:commonj:1.1.0")
 		optional("org.apache.velocity:velocity:1.7")
 		optional("org.freemarker:freemarker:${freemarkerVersion}")
@@ -803,7 +798,6 @@ project("spring-orm-hibernate5") {
 		provided(project(":spring-tx"))
 		optional(project(":spring-web"))
 		optional("org.hibernate:hibernate-core:${hibernate5Version}")
-		optional("org.hibernate:hibernate-entitymanager:${hibernate5Version}")
 		optional("javax.servlet:javax.servlet-api:3.0.1")
 		optional("javax.transaction:javax.transaction-api:${jtaVersion}")
 	}
@@ -1012,16 +1006,16 @@ project("spring-test") {
 		optional("org.aspectj:aspectjweaver:${aspectjVersion}")
 		optional("org.codehaus.groovy:groovy-all:${groovyVersion}")
 		optional("org.hamcrest:hamcrest-core:${hamcrestVersion}")
-		optional("org.seleniumhq.selenium:selenium-java:${seleniumVersion}")
-		optional("org.seleniumhq.selenium:htmlunit-driver:${htmlunitVersion}")
-		optional("net.sourceforge.htmlunit:htmlunit:${htmlunitVersion}")
 		optional("xmlunit:xmlunit:${xmlunitVersion}")
-		optional("org.skyscreamer:jsonassert:${jsonassertVersion}")
-		optional("com.jayway.jsonpath:json-path:${jsonpathVersion}")
+		optional("net.sourceforge.htmlunit:htmlunit:2.21")
+		optional("org.seleniumhq.selenium:htmlunit-driver:2.20")
+		optional("org.seleniumhq.selenium:selenium-java:2.53.0")
+		optional("org.skyscreamer:jsonassert:1.3.0")
+		optional("com.jayway.jsonpath:json-path:2.2.0")
 		testCompile(project(":spring-context-support"))
 		testCompile(project(":spring-oxm"))
 		testCompile("javax.mail:javax.mail-api:${javamailVersion}")
-		testCompile("javax.ejb:ejb-api:${ejbApiVersion}")
+		testCompile("javax.ejb:ejb-api:${ejbVersion}")
 		testCompile("org.hibernate:hibernate-core:${hibernate4Version}")
 		testCompile("org.hibernate:hibernate-entitymanager:${hibernate4Version}")
 		testCompile("org.hibernate:hibernate-validator:${hibval5Version}")
@@ -1162,9 +1156,7 @@ configure(rootProject) {
 		separateOutputDirs = false
 		backends = ['docbook']
 		options doctype: 'book', eruby: 'erubis'
-		attributes 	'spring-version': project.version,
-					'revnumber' : project.version,
-					'docinfo' : ""
+		attributes 'spring-version': project.version, 'revnumber': project.version, 'docinfo': ""
 	}
 
 	reference {
@@ -1300,7 +1292,7 @@ configure(rootProject) {
 		baseName = "spring-framework"
 		classifier = "dist"
 		description = "Builds -${classifier} archive, containing all jars and docs, " +
-					"suitable for community download page."
+			"suitable for community download page."
 
 		ext.baseDir = "${baseName}-${project.version}";
 
@@ -1373,7 +1365,7 @@ configure(rootProject) {
 
 	task wrapper(type: Wrapper) {
 		description = "Generates gradlew[.bat] scripts"
-		gradleVersion = "2.12"
+		gradleVersion = "2.13"
 
 		doLast() {
 			def gradleOpts = "-XX:MaxMetaspaceSize=1024m -Xmx1024m"
