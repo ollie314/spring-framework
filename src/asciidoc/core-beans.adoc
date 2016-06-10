@@ -2274,7 +2274,7 @@ the __scope__ of the objects created from a particular bean definition. This app
 powerful and flexible in that you can __choose__ the scope of the objects you create
 through configuration instead of having to bake in the scope of an object at the Java
 class level. Beans can be defined to be deployed in one of a number of scopes: out of
-the box, the Spring Framework supports five scopes, three of which are available only if
+the box, the Spring Framework supports seven scopes, five of which are available only if
 you use a web-aware `ApplicationContext`.
 
 The following scopes are supported out of the box. You can also create
@@ -2301,13 +2301,17 @@ The following scopes are supported out of the box. You can also create
 | Scopes a single bean definition to the lifecycle of an HTTP `Session`. Only valid in
   the context of a web-aware Spring `ApplicationContext`.
 
-| <<beans-factory-scopes-global-session,global session>>
+| <<beans-factory-scopes-global-session,globalSession>>
 | Scopes a single bean definition to the lifecycle of a global HTTP `Session`. Typically
-  only valid when used in a portlet context. Only valid in the context of a web-aware
+  only valid when used in a Portlet context. Only valid in the context of a web-aware
   Spring `ApplicationContext`.
 
 | <<beans-factory-scopes-application,application>>
 | Scopes a single bean definition to the lifecycle of a `ServletContext`. Only valid in
+  the context of a web-aware Spring `ApplicationContext`.
+
+| <<websocket-stomp-websocket-scope,websocket>>
+| Scopes a single bean definition to the lifecycle of a `WebSocket`. Only valid in
   the context of a web-aware Spring `ApplicationContext`.
 |===
 
@@ -2418,22 +2422,22 @@ runtime more than once, see <<beans-factory-method-injection>>
 
 
 [[beans-factory-scopes-other]]
-=== Request, session, and global session scopes
+=== Request, session, global session, application, and WebSocket scopes
 
-The `request`, `session`, and `global session` scopes are __only__ available if you use
-a web-aware Spring `ApplicationContext` implementation (such as
-`XmlWebApplicationContext`). If you use these scopes with regular Spring IoC containers
-such as the `ClassPathXmlApplicationContext`, you get an `IllegalStateException`
-complaining about an unknown bean scope.
+The `request`, `session`, `globalSession`, `application`, and `websocket` scopes are
+__only__ available if you use a web-aware Spring `ApplicationContext` implementation
+(such as `XmlWebApplicationContext`). If you use these scopes with regular Spring IoC
+containers such as the `ClassPathXmlApplicationContext`, an `IllegalStateException` will
+be thrown complaining about an unknown bean scope.
 
 
 [[beans-factory-scopes-other-web-configuration]]
 ==== Initial web configuration
 
-To support the scoping of beans at the `request`, `session`, and `global session` levels
-(web-scoped beans), some minor initial configuration is required before you define your
-beans. (This initial setup is __not__ required for the standard scopes, `singleton` and
-`prototype`.)
+To support the scoping of beans at the `request`, `session`, `globalSession`,
+`application`, and `websocket` levels (web-scoped beans), some minor initial
+configuration is required before you define your beans. (This initial setup is __not__
+required for the standard scopes, `singleton` and `prototype`.)
 
 How you accomplish this initial setup depends on your particular Servlet environment.
 
@@ -2493,7 +2497,7 @@ down the call chain.
 [[beans-factory-scopes-request]]
 ==== Request scope
 
-Consider the following bean definition:
+Consider the following XML configuration for a bean definition:
 
 [source,xml,indent=0]
 [subs="verbatim,quotes"]
@@ -2509,11 +2513,24 @@ created from the same `loginAction` bean definition will not see these changes i
 they are particular to an individual request. When the request completes processing, the
 bean that is scoped to the request is discarded.
 
+When using annotation-driven components or Java Config, the `@RequestScope` annotation
+can be used to assign a component to the `request` scope.
+
+[source,java,indent=0]
+[subs="verbatim,quotes"]
+----
+	**@RequestScope**
+	@Component
+	public class LoginAction {
+		// ...
+	}
+----
+
 
 [[beans-factory-scopes-session]]
 ==== Session scope
 
-Consider the following bean definition:
+Consider the following XML configuration for a bean definition:
 
 [source,xml,indent=0]
 [subs="verbatim,quotes"]
@@ -2531,6 +2548,19 @@ changes in state, because they are particular to an individual HTTP `Session`. W
 HTTP `Session` is eventually discarded, the bean that is scoped to that particular HTTP
 `Session` is also discarded.
 
+When using annotation-driven components or Java Config, the `@SessionScope` annotation
+can be used to assign a component to the `session` scope.
+
+[source,java,indent=0]
+[subs="verbatim,quotes"]
+----
+	**@SessionScope**
+	@Component
+	public class UserPreferences {
+		// ...
+	}
+----
+
 
 [[beans-factory-scopes-global-session]]
 ==== Global session scope
@@ -2543,22 +2573,22 @@ Consider the following bean definition:
 	<bean id="userPreferences" class="com.foo.UserPreferences" scope="globalSession"/>
 ----
 
-The `global session` scope is similar to the standard HTTP `Session` scope
+The `globalSession` scope is similar to the standard HTTP `Session` scope
 (<<beans-factory-scopes-session,described above>>), and applies only in the context of
 portlet-based web applications. The portlet specification defines the notion of a global
 `Session` that is shared among all portlets that make up a single portlet web
-application. Beans defined at the `global session` scope are scoped (or bound) to the
+application. Beans defined at the `globalSession` scope are scoped (or bound) to the
 lifetime of the global portlet `Session`.
 
 If you write a standard Servlet-based web application and you define one or more beans
-as having `global session` scope, the standard HTTP `Session` scope is used, and no
+as having `globalSession` scope, the standard HTTP `Session` scope is used, and no
 error is raised.
 
 
 [[beans-factory-scopes-application]]
 ==== Application scope
 
-Consider the following bean definition:
+Consider the following XML configuration for a bean definition:
 
 [source,xml,indent=0]
 [subs="verbatim,quotes"]
@@ -2573,6 +2603,19 @@ The Spring container creates a new instance of the `AppPreferences` bean by usin
 differs in two important ways: It is a singleton per `ServletContext`, not per Spring
 'ApplicationContext' (for which there may be several in any given web application),
 and it is actually exposed and therefore visible as a `ServletContext` attribute.
+
+When using annotation-driven components or Java Config, the `@ApplicationScope`
+annotation can be used to assign a component to the `application` scope.
+
+[source,java,indent=0]
+[subs="verbatim,quotes"]
+----
+	**@ApplicationScope**
+	@Component
+	public class AppPreferences {
+		// ...
+	}
+----
 
 
 [[beans-factory-scopes-other-injection]]
@@ -4593,15 +4636,16 @@ If you intend to express annotation-driven injection by name, do not primarily u
 semantically defined to identify a specific target component by its unique name, with
 the declared type being irrelevant for the matching process.
 
-As a specific consequence of this semantic difference, beans that are themselves defined
-as a collection or map type cannot be injected through `@Autowired`, because type
-matching is not properly applicable to them. Use `@Resource` for such beans, referring
-to the specific collection or map bean by unique name.
+For beans that are themselves defined as a collection/map or array type, `@Resource`
+is a fine solution, referring to the specific collection or array bean by unique name.
+That said, as of 4.3, collection/map and array types can be matched through Spring's
+`@Autowired` type matching algorithm as well, as long as the element type information
+is preserved in `@Bean` return type signatures or collection inheritance hierarchies.
 
 `@Autowired` applies to fields, constructors, and multi-argument methods, allowing for
 narrowing through qualifier annotations at the parameter level. By contrast, `@Resource`
-is supported only for fields and bean property setter methods with a single argument. As
-a consequence, stick with qualifiers if your injection target is a constructor or a
+is supported only for fields and bean property setter methods with a single argument.
+As a consequence, stick with qualifiers if your injection target is a constructor or a
 multi-argument method.
 ====
 
@@ -5133,19 +5177,26 @@ the `@RestController` annotation from Spring MVC is __composed__ of `@Controller
 
 In addition, composed annotations may optionally redeclare attributes from
 meta-annotations to allow user customization. This can be particularly useful when you
-want to only expose a subset of the meta-annotation's attributes. For example, the
-following is a custom `@Scope` annotation that hardcodes the scope name to `session` but
-still allows customization of the `proxyMode`.
+want to only expose a subset of the meta-annotation's attributes. For example, Spring's
+`@SessionScope` annotation hardcodes the scope name to `session` but still allows
+customization of the `proxyMode`.
 
 [source,java,indent=0]
 [subs="verbatim,quotes"]
 ----
-	@Target(ElementType.TYPE)
+	@Target({ElementType.TYPE, ElementType.METHOD})
 	@Retention(RetentionPolicy.RUNTIME)
-	**@Scope("session")**
+	@Documented
+	@Scope(WebApplicationContext.SCOPE_SESSION)
 	public @interface SessionScope {
 
-		ScopedProxyMode proxyMode() default ScopedProxyMode.DEFAULT;
+		/**
+		 * Alias for {@link Scope#proxyMode}.
+		 * <p>Defaults to {@link ScopedProxyMode#TARGET_CLASS}.
+		 */
+		@AliasFor(annotation = Scope.class)
+		ScopedProxyMode proxyMode() default ScopedProxyMode.TARGET_CLASS;
+
 	}
 ----
 
@@ -5156,7 +5207,7 @@ still allows customization of the `proxyMode`.
 ----
 	@Service
 	**@SessionScope**
-	public class SessionScopedUserService implements UserService {
+	public class SessionScopedService {
 		// ...
 	}
 ----
@@ -5167,8 +5218,8 @@ Or with an overridden value for the `proxyMode` as follows:
 [subs="verbatim,quotes"]
 ----
 	@Service
-	**@SessionScope(proxyMode = ScopedProxyMode.TARGET_CLASS)**
-	public class SessionScopedService {
+	**@SessionScope(proxyMode = ScopedProxyMode.INTERFACES)**
+	public class SessionScopedUserService implements UserService {
 		// ...
 	}
 ----
@@ -5351,9 +5402,9 @@ and the equivalent using XML
 [NOTE]
 ====
 You can also disable the default filters by setting `useDefaultFilters=false` on the annotation or
-providing `use-default-filters="false"` as an attribute of the <component-scan/> element. This
+providing `use-default-filters="false"` as an attribute of the `<component-scan/>` element. This
 will in effect disable automatic detection of classes annotated with `@Component`, `@Repository`,
-`@Service`, or `@Controller`.
+`@Service`, `@Controller`, or `@Configuration`.
 ====
 
 
@@ -5428,13 +5479,12 @@ support for autowiring of `@Bean` methods:
 		}
 
 		@Bean
-		@Scope(BeanDefinition.SCOPE_SINGLETON)
 		private TestBean privateInstance() {
 			return new TestBean("privateInstance", i++);
 		}
 
 		@Bean
-		@Scope(value = WebApplicationContext.SCOPE_SESSION, proxyMode = ScopedProxyMode.TARGET_CLASS)
+		@RequestScope
 		public TestBean requestScopedInstance() {
 			return new TestBean("requestScopedInstance", 3);
 		}
@@ -5501,14 +5551,14 @@ analogous to how the container selects between multiple `@Autowired` constructor
 
 When a component is autodetected as part of the scanning process, its bean name is
 generated by the `BeanNameGenerator` strategy known to that scanner. By default, any
-Spring stereotype annotation ( `@Component`, `@Repository`, `@Service`, and
-`@Controller`) that contains a `name` value will thereby provide that name to the
+Spring stereotype annotation (`@Component`, `@Repository`, `@Service`, and
+`@Controller`) that contains a _name_ `value` will thereby provide that name to the
 corresponding bean definition.
 
-If such an annotation contains no `name` value or for any other detected component (such
+If such an annotation contains no _name_ `value` or for any other detected component (such
 as those discovered by custom filters), the default bean name generator returns the
 uncapitalized non-qualified class name. For example, if the following two components
-were detected, the names would be myMovieLister and movieFinderImpl:
+were detected, the names would be `myMovieLister` and `movieFinderImpl`:
 
 [source,java,indent=0]
 [subs="verbatim,quotes"]
@@ -5566,8 +5616,8 @@ auto-generated names are adequate whenever the container is responsible for wiri
 === Providing a scope for autodetected components
 
 As with Spring-managed components in general, the default and most common scope for
-autodetected components is singleton. However, sometimes you need other scopes, which
-Spring 2.5 provides with a new `@Scope` annotation. Simply provide the name of the scope
+autodetected components is `singleton`. However, sometimes you need a different scope
+which can be specified via the `@Scope` annotation. Simply provide the name of the scope
 within the annotation:
 
 [source,java,indent=0]
@@ -5579,6 +5629,9 @@ within the annotation:
 		// ...
 	}
 ----
+
+For details on web-specific scopes, see <<beans-factory-scopes-other>>.
+
 
 [NOTE]
 ====
@@ -5857,7 +5910,7 @@ Please use Spring's stereotype model for building custom component annotations.
 
 
 [[beans-standard-annotations-limitations]]
-=== Limitations of the standard approach
+=== Limitations of JSR-330 standard annotations
 
 When working with standard annotations, it is important to know that some significant
 features are not available as shown in the table below:
@@ -6412,7 +6465,7 @@ link) to our `@Bean` using Java, it would look like the following:
 ----
 	// an HTTP Session-scoped bean exposed as a proxy
 	@Bean
-	**@Scope(value = "session", proxyMode = ScopedProxyMode.TARGET_CLASS)**
+	**@SessionScope**
 	public UserPreferences userPreferences() {
 		return new UserPreferences();
 	}
