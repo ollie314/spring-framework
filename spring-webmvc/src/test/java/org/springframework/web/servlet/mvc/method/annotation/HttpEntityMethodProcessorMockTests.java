@@ -16,13 +16,9 @@
 
 package org.springframework.web.servlet.mvc.method.annotation;
 
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
-import static org.springframework.web.servlet.HandlerMapping.*;
-
 import java.lang.reflect.Method;
 import java.net.URI;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,6 +51,10 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.method.support.ModelAndViewContainer;
+
+import static org.junit.Assert.*;
+import static org.mockito.BDDMockito.*;
+import static org.springframework.web.servlet.HandlerMapping.*;
 
 /**
  * Test fixture for {@link HttpEntityMethodProcessor} delegating to a mock
@@ -158,7 +158,7 @@ public class HttpEntityMethodProcessorMockTests {
 
 		MediaType contentType = MediaType.TEXT_PLAIN;
 		servletRequest.addHeader("Content-Type", contentType.toString());
-		servletRequest.setContent(body.getBytes(Charset.forName("UTF-8")));
+		servletRequest.setContent(body.getBytes(StandardCharsets.UTF_8));
 
 		given(stringHttpMessageConverter.canRead(String.class, contentType)).willReturn(true);
 		given(stringHttpMessageConverter.read(eq(String.class), isA(HttpInputMessage.class))).willReturn(body);
@@ -180,7 +180,7 @@ public class HttpEntityMethodProcessorMockTests {
 		servletRequest.setServerName("www.example.com");
 		servletRequest.setServerPort(80);
 		servletRequest.setRequestURI("/path");
-		servletRequest.setContent(body.getBytes(Charset.forName("UTF-8")));
+		servletRequest.setContent(body.getBytes(StandardCharsets.UTF_8));
 
 		given(stringHttpMessageConverter.canRead(String.class, contentType)).willReturn(true);
 		given(stringHttpMessageConverter.read(eq(String.class), isA(HttpInputMessage.class))).willReturn(body);
@@ -213,7 +213,7 @@ public class HttpEntityMethodProcessorMockTests {
 	@Test(expected = HttpMediaTypeNotSupportedException.class)
 	public void resolveArgumentNoContentType() throws Exception {
 		servletRequest.setMethod("POST");
-		servletRequest.setContent("some content".getBytes(Charset.forName("UTF-8")));
+		servletRequest.setContent("some content".getBytes(StandardCharsets.UTF_8));
 		processor.resolveArgument(paramHttpEntity, mavContainer, webRequest, null);
 		fail("Expected exception");
 	}
@@ -310,7 +310,7 @@ public class HttpEntityMethodProcessorMockTests {
 
 	// SPR-9142
 
-	@Test(expected=HttpMediaTypeNotAcceptableException.class)
+	@Test(expected = HttpMediaTypeNotAcceptableException.class)
 	public void handleReturnValueNotAcceptableParseError() throws Exception {
 		ResponseEntity<String> returnValue = new ResponseEntity<>("Body", HttpStatus.ACCEPTED);
 		servletRequest.addHeader("Accept", "01");
@@ -377,6 +377,21 @@ public class HttpEntityMethodProcessorMockTests {
 		assertResponseNotModified();
 		assertEquals(1, servletResponse.getHeaderValues(HttpHeaders.ETAG).size());
 		assertEquals(etagValue, servletResponse.getHeader(HttpHeaders.ETAG));
+	}
+
+	@Test // SPR-14559
+	public void handleReturnValueEtagInvalidIfNoneMatch() throws Exception {
+		String etagValue = "\"deadb33f8badf00d\"";
+		servletRequest.addHeader(HttpHeaders.IF_NONE_MATCH, "unquoted");
+		HttpHeaders responseHeaders = new HttpHeaders();
+		responseHeaders.set(HttpHeaders.ETAG, etagValue);
+		ResponseEntity<String> returnValue = new ResponseEntity<>("body", responseHeaders, HttpStatus.OK);
+
+		initStringMessageConversion(MediaType.TEXT_PLAIN);
+		processor.handleReturnValue(returnValue, returnTypeResponseEntity, mavContainer, webRequest);
+
+		assertTrue(mavContainer.isRequestHandled());
+		assertEquals(HttpStatus.OK.value(), servletResponse.getStatus());
 	}
 
 	@Test
@@ -461,8 +476,7 @@ public class HttpEntityMethodProcessorMockTests {
 		processor.handleReturnValue(returnValue, returnTypeResponseEntity, mavContainer, webRequest);
 
 		assertResponseOkWithBody("body");
-		assertEquals(1, servletResponse.getHeaderValues(HttpHeaders.ETAG).size());
-		assertEquals(etagValue, servletResponse.getHeader(HttpHeaders.ETAG));
+		assertEquals(0, servletResponse.getHeaderValues(HttpHeaders.ETAG).size());
 	}
 
 	// SPR-13626
@@ -496,7 +510,7 @@ public class HttpEntityMethodProcessorMockTests {
 		initStringMessageConversion(MediaType.TEXT_PLAIN);
 		processor.handleReturnValue(returnValue, returnTypeResponseEntity, mavContainer, webRequest);
 
-		assertResponseOkWithBody("body");
+		assertResponseNotModified();
 		assertEquals(1, servletResponse.getHeaderValues(HttpHeaders.ETAG).size());
 		assertEquals(etagValue, servletResponse.getHeader(HttpHeaders.ETAG));
 	}
@@ -514,7 +528,7 @@ public class HttpEntityMethodProcessorMockTests {
 		initStringMessageConversion(MediaType.TEXT_PLAIN);
 		processor.handleReturnValue(returnValue, returnTypeResponseEntity, mavContainer, webRequest);
 
-		assertResponseOkWithBody("body");
+		assertResponseNotModified();
 		assertEquals(1, servletResponse.getHeaderValues(HttpHeaders.ETAG).size());
 		assertEquals(etagValue, servletResponse.getHeader(HttpHeaders.ETAG));
 	}
@@ -522,7 +536,7 @@ public class HttpEntityMethodProcessorMockTests {
 	@Test
 	public void handleReturnTypeResource() throws Exception {
 		ResponseEntity<Resource> returnValue = ResponseEntity
-				.ok(new ByteArrayResource("Content".getBytes(Charset.forName("UTF-8"))));
+				.ok(new ByteArrayResource("Content".getBytes(StandardCharsets.UTF_8)));
 
 		given(resourceMessageConverter.canWrite(ByteArrayResource.class, null)).willReturn(true);
 		given(resourceMessageConverter.getSupportedMediaTypes()).willReturn(Collections.singletonList(MediaType.ALL));

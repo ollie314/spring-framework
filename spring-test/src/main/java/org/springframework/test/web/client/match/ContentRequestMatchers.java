@@ -58,6 +58,7 @@ public class ContentRequestMatchers {
 		this.xmlHelper = new XmlExpectationsHelper();
 	}
 
+
 	/**
 	 * Assert the request content type as a String.
 	 */
@@ -222,7 +223,7 @@ public class ContentRequestMatchers {
 				matchInternal(mockRequest);
 			}
 			catch (Exception ex) {
-				throw new AssertionError("Failed to parse expected or actual XML request content: " + ex.getMessage());
+				throw new AssertionError("Failed to parse expected or actual XML request content", ex);
 			}
 		}
 

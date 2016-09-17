@@ -1435,12 +1435,14 @@ public class DefaultListableBeanFactoryTests {
 	public void testGetBeanByTypeWithPrimary() throws Exception {
 		DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
 		RootBeanDefinition bd1 = new RootBeanDefinition(TestBean.class);
+		bd1.setLazyInit(true);
 		RootBeanDefinition bd2 = new RootBeanDefinition(TestBean.class);
 		bd2.setPrimary(true);
 		lbf.registerBeanDefinition("bd1", bd1);
 		lbf.registerBeanDefinition("bd2", bd2);
 		TestBean bean = lbf.getBean(TestBean.class);
 		assertThat(bean.getBeanName(), equalTo("bd2"));
+		assertFalse(lbf.containsSingleton("bd1"));
 	}
 
 	@Test
@@ -1744,24 +1746,6 @@ public class DefaultListableBeanFactoryTests {
 
 	@Test
 	public void testAutowireBeanByTypeWithTwoMatches() {
-		DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
-		RootBeanDefinition bd = new RootBeanDefinition(TestBean.class);
-		RootBeanDefinition bd2 = new RootBeanDefinition(TestBean.class);
-		lbf.registerBeanDefinition("test", bd);
-		lbf.registerBeanDefinition("spouse", bd2);
-		try {
-			lbf.autowire(DependenciesBean.class, AutowireCapableBeanFactory.AUTOWIRE_BY_TYPE, true);
-			fail("Should have thrown UnsatisfiedDependencyException");
-		}
-		catch (UnsatisfiedDependencyException ex) {
-			// expected
-			assertTrue(ex.getMessage().contains("test"));
-			assertTrue(ex.getMessage().contains("spouse"));
-		}
-	}
-
-	@Test
-	public void testAutowireBeanByTypeWithTwoMatchesAndParameterNameDiscovery() {
 		DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
 		RootBeanDefinition bd = new RootBeanDefinition(TestBean.class);
 		RootBeanDefinition bd2 = new RootBeanDefinition(TestBean.class);
@@ -2216,7 +2200,7 @@ public class DefaultListableBeanFactoryTests {
 	@Test
 	public void testPrototypeWithArrayConversionForConstructor() {
 		DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
-		List<String> list = new ManagedList<String>();
+		List<String> list = new ManagedList<>();
 		list.add("myName");
 		list.add("myBeanName");
 		RootBeanDefinition bd = new RootBeanDefinition(DerivedTestBean.class);
@@ -2235,7 +2219,7 @@ public class DefaultListableBeanFactoryTests {
 	@Test
 	public void testPrototypeWithArrayConversionForFactoryMethod() {
 		DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
-		List<String> list = new ManagedList<String>();
+		List<String> list = new ManagedList<>();
 		list.add("myName");
 		list.add("myBeanName");
 		RootBeanDefinition bd = new RootBeanDefinition(DerivedTestBean.class);

@@ -17,8 +17,8 @@
 package org.springframework.http.converter;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,7 +40,7 @@ import org.springframework.util.StreamUtils;
  */
 public class StringHttpMessageConverter extends AbstractHttpMessageConverter<String> {
 
-	public static final Charset DEFAULT_CHARSET = Charset.forName("ISO-8859-1");
+	public static final Charset DEFAULT_CHARSET = StandardCharsets.ISO_8859_1;
 
 
 	private final List<Charset> availableCharsets;
@@ -62,7 +62,7 @@ public class StringHttpMessageConverter extends AbstractHttpMessageConverter<Str
 	 */
 	public StringHttpMessageConverter(Charset defaultCharset) {
 		super(defaultCharset, MediaType.TEXT_PLAIN, MediaType.ALL);
-		this.availableCharsets = new ArrayList<Charset>(Charset.availableCharsets().values());
+		this.availableCharsets = new ArrayList<>(Charset.availableCharsets().values());
 	}
 
 
@@ -89,13 +89,7 @@ public class StringHttpMessageConverter extends AbstractHttpMessageConverter<Str
 	@Override
 	protected Long getContentLength(String str, MediaType contentType) {
 		Charset charset = getContentTypeCharset(contentType);
-		try {
-			return (long) str.getBytes(charset.name()).length;
-		}
-		catch (UnsupportedEncodingException ex) {
-			// should not occur
-			throw new IllegalStateException(ex);
-		}
+		return (long) str.getBytes(charset).length;
 	}
 
 	@Override

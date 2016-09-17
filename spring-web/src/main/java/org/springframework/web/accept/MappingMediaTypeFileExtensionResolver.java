@@ -43,12 +43,12 @@ import org.springframework.util.MultiValueMap;
 public class MappingMediaTypeFileExtensionResolver implements MediaTypeFileExtensionResolver {
 
 	private final ConcurrentMap<String, MediaType> mediaTypes =
-			new ConcurrentHashMap<String, MediaType>(64);
+			new ConcurrentHashMap<>(64);
 
 	private final MultiValueMap<MediaType, String> fileExtensions =
-			new LinkedMultiValueMap<MediaType, String>();
+			new LinkedMultiValueMap<>();
 
-	private final List<String> allFileExtensions = new LinkedList<String>();
+	private final List<String> allFileExtensions = new LinkedList<>();
 
 
 	/**
@@ -67,8 +67,12 @@ public class MappingMediaTypeFileExtensionResolver implements MediaTypeFileExten
 	}
 
 
+	public Map<String, MediaType> getMediaTypes() {
+		return this.mediaTypes;
+	}
+
 	protected List<MediaType> getAllMediaTypes() {
-		return new ArrayList<MediaType>(this.mediaTypes.values());
+		return new ArrayList<>(this.mediaTypes.values());
 	}
 
 	/**

@@ -25,7 +25,7 @@ For an explanation of this principle, refer to __Expert Spring Web MVC and Web F
 Seth Ladd and others; specifically see the section "A Look At Design," on page 117 of
 the first edition. Alternatively, see
 
-* http://www.objectmentor.com/resources/articles/ocp.pdf[Bob Martin, The Open-Closed
+* https://www.cs.duke.edu/courses/fall07/cps108/papers/ocp.pdf[Bob Martin, The Open-Closed
   Principle (PDF)]
 
 You cannot add advice to final methods when you use Spring MVC. For example, you cannot
@@ -49,9 +49,9 @@ configurable through file extension or Accept header content type negotiation, t
 bean names, a properties file, or even a custom `ViewResolver` implementation. The model
 (the M in MVC) is a `Map` interface, which allows for the complete abstraction of the
 view technology. You can integrate directly with template based rendering technologies
-such as JSP, Velocity and Freemarker, or directly generate XML, JSON, Atom, and many
-other types of content. The model `Map` is simply transformed into an appropriate
-format, such as JSP request attributes, a Velocity template model.
+such as JSP and FreeMarker, or directly generate XML, JSON, Atom, and many other types
+of content. The model `Map` is simply transformed into an appropriate format, such as
+JSP request attributes or a FreeMarker template model.
 
 
 
@@ -101,7 +101,7 @@ Spring's web module includes many unique web support features:
 * __Flexible model transfer__. Model transfer with a name/value `Map` supports easy
   integration with any view technology.
 * __Customizable locale, time zone and theme resolution, support for JSPs with or without
-  Spring tag library, support for JSTL, support for Velocity without the need for extra
+  Spring tag library, support for JSTL, support for FreeMarker without the need for extra
   bridges, and so on.__
 * __A simple yet powerful JSP tag library known as the Spring tag library that provides
   support for features such as data binding and themes__. The custom tags allow for
@@ -171,7 +171,7 @@ Java EE Servlet configuration in a Servlet 3.0+ environment:
 
 		@Override
 		public void onStartup(ServletContext container) {
-			ServletRegistration.Dynamic registration = container.addServlet("dispatcher", new DispatcherServlet());
+			ServletRegistration.Dynamic registration = container.addServlet("example", new DispatcherServlet());
 			registration.setLoadOnStartup(1);
 			registration.addMapping("/example/*");
 		}
@@ -399,7 +399,7 @@ implementations is ignored.
 In <<mvc-config>> you'll learn about other options for configuring Spring MVC including
 MVC Java config and the MVC XML namespace both of which provide a simple starting point
 and assume little knowledge of how Spring MVC works. Regardless of how you choose to
-configure your application, the concepts explained in this section are fundamental
+configure your application, the concepts explained in this section are fundamental and
 should be of help to you.
 
 
@@ -565,7 +565,7 @@ snippet:
 You use the `@RequestMapping` annotation to map URLs such as `/appointments` onto an
 entire class or a particular handler method. Typically the class-level annotation maps a
 specific request path (or path pattern) onto a form controller, with additional
-method-level annotations narrowing the primary mapping for a specific HTTP method
+method-level annotations narrowing the primary mapping for a specific HTTP
 request method ("GET", "POST", etc.) or an HTTP request parameter condition.
 
 The following example from the __Petcare__ sample shows a controller in a Spring MVC
@@ -793,7 +793,7 @@ to the value of a URI template variable:
 	}
 ----
 
-The URI Template " `/owners/{ownerId}`" specifies the variable name `ownerId`. When the
+The URI Template ++"/owners/{ownerId}"++ specifies the variable name `ownerId`. When the
 controller handles this request, the value of `ownerId` is set to the value found in the
 appropriate part of the URI. For example, when a request comes in for `/owners/fred`,
 the value of `ownerId` is `fred`.
@@ -972,7 +972,7 @@ are effective at preventing RFD attacks.
 
 For comprehensive protection against RFD, prior to rendering the response body
 Spring MVC adds a `Content-Disposition:inline;filename=f.txt` header to
-suggest a fixed and safe download file filename. This is done only if the URL
+suggest a fixed and safe download file. This is done only if the URL
 path contains a file extension that is neither whitelisted nor explicitly
 registered for content negotiation purposes. However it may potentially have
 side effects when URLs are typed directly into a browser.
@@ -1295,14 +1295,14 @@ The following are the supported method arguments:
 
 * Request or response objects (Servlet API). Choose any specific request or response
   type, for example `ServletRequest` or `HttpServletRequest`.
-* Session object (Servlet API): of type `HttpSession`. An argument of this type enforces
+* Session object (Servlet API) of type `HttpSession`. An argument of this type enforces
   the presence of a corresponding session. As a consequence, such an argument is never
   `null`.
 
 [NOTE]
 ====
 Session access may not be thread-safe, in particular in a Servlet environment. Consider
-setting the ++RequestMappingHandlerAdapter++'s "synchronizeOnSession" flag to "true" if
+setting the ``RequestMappingHandlerAdapter``'s "synchronizeOnSession" flag to "true" if
 multiple requests are allowed to access a session concurrently.
 ====
 
@@ -1333,7 +1333,7 @@ multiple requests are allowed to access a session concurrently.
   See <<mvc-ann-requestheader>>.
 * `@RequestBody` annotated parameters for access to the HTTP request body. Parameter
   values are converted to the declared method argument type using
-  ++HttpMessageConverter++s. See <<mvc-ann-requestbody>>.
+  ``HttpMessageConverter``s. See <<mvc-ann-requestbody>>.
 * `@RequestPart` annotated parameters for access to the content of a
   "multipart/form-data" request part. See <<mvc-multipart-forms-non-browsers>> and
   <<mvc-multipart>>.
@@ -1344,7 +1344,7 @@ multiple requests are allowed to access a session concurrently.
 * `@RequestAttribute` annotated parameters for access to request attributes.
 * `HttpEntity<?>` parameters for access to the Servlet request HTTP headers and
   contents. The request stream will be converted to the entity body using
-  ++HttpMessageConverter++s. See <<mvc-ann-httpentity>>.
+  ``HttpMessageConverter``s. See <<mvc-ann-httpentity>>.
 * `java.util.Map` / `org.springframework.ui.Model` / `org.springframework.ui.ModelMap`
   for enriching the implicit model that is exposed to the web view.
 * `org.springframework.web.servlet.mvc.support.RedirectAttributes` to specify the exact
@@ -1396,7 +1396,7 @@ this working you have to reorder the parameters as follows:
 [NOTE]
 ====
 JDK 1.8's `java.util.Optional` is supported as a method parameter type with annotations
-that have a `required` attribute (e.g. `@RequestParam`, `@RequestHeader`, etc. The use
+that have a `required` attribute (e.g. `@RequestParam`, `@RequestHeader`, etc). The use
 of `java.util.Optional` in those cases is equivalent to having `required=false`.
 ====
 
@@ -1427,10 +1427,10 @@ The following are the supported return types:
   signature).
 * If the method is annotated with `@ResponseBody`, the return type is written to the
   response HTTP body. The return value will be converted to the declared method argument
-  type using ++HttpMessageConverter++s. See <<mvc-ann-responsebody>>.
+  type using ``HttpMessageConverter``s. See <<mvc-ann-responsebody>>.
 * An `HttpEntity<?>` or `ResponseEntity<?>` object to provide access to the Servlet
   response HTTP headers and contents. The entity body will be converted to the response
-  stream using ++HttpMessageConverter++s. See <<mvc-ann-httpentity>>.
+  stream using ``HttpMessageConverter``s. See <<mvc-ann-httpentity>>.
 * An `HttpHeaders` object to return a response with no body.
 * A `Callable<?>` can be returned when the application wants to produce the return value
   asynchronously in a thread managed by Spring MVC.
@@ -1482,8 +1482,8 @@ The following code snippet shows the usage:
 ----
 
 Parameters using this annotation are required by default, but you can specify that a
-parameter is optional by setting ++@RequestParam++'s `required` attribute to `false`
-(e.g., `@RequestParam(path="id", required=false)`).
+parameter is optional by setting ``@RequestParam``'s `required` attribute to `false`
+(e.g., `@RequestParam(name="id", required=false)`).
 
 Type conversion is applied automatically if the target method parameter type is not
 `String`. See <<mvc-ann-typeconversion>>.
@@ -1537,7 +1537,7 @@ the MVC namespace or the MVC Java config see <<mvc-config-enable>> instead.
 				<ref bean="stringHttpMessageConverter"/>
 				<ref bean="marshallingHttpMessageConverter"/>
 			</util:list>
-		</property
+		</property>
 	</bean>
 
 	<bean id="stringHttpMessageConverter"
@@ -1607,7 +1607,7 @@ is a stereotype annotation that combines `@ResponseBody` and `@Controller`. More
 that, it gives more meaning to your Controller and also may carry additional semantics
 in future releases of the framework.
 
-As with regular ++@Controller++s, a `@RestController` may be assisted by
+As with regular ``@Controller``s, a `@RestController` may be assisted by
 `@ControllerAdvice` or `@RestControllerAdvice` beans. See the <<mvc-ann-controller-advice>>
 section for more details.
 
@@ -1624,7 +1624,7 @@ so:
 ----
 	@RequestMapping("/something")
 	public ResponseEntity<String> handle(HttpEntity<byte[]> requestEntity) throws UnsupportedEncodingException {
-		String requestHeader = requestEntity.getHeaders().getFirst("MyRequestHeader"));
+		String requestHeader = requestEntity.getHeaders().getFirst("MyRequestHeader");
 		byte[] requestBody = requestEntity.getBody();
 
 		// do something with request header and body
@@ -1691,7 +1691,7 @@ depending on your needs.
 A controller can have any number of `@ModelAttribute` methods. All such methods are
 invoked before `@RequestMapping` methods of the same controller.
 
-`@ModelAttribute` methods can also be defined in an ++@ControllerAdvice++-annotated class
+`@ModelAttribute` methods can also be defined in an ``@ControllerAdvice``-annotated class
 and such methods apply to many controllers. See the <<mvc-ann-controller-advice>> section
 for more details.
 
@@ -2132,7 +2132,7 @@ controller-specific tweaking of the binding rules.
 
 To externalize data binding initialization, you can provide a custom implementation of
 the `WebBindingInitializer` interface, which you then enable by supplying a custom bean
-configuration for an `AnnotationMethodHandlerAdapter`, thus overriding the default
+configuration for an `RequestMappingHandlerAdapter`, thus overriding the default
 configuration.
 
 The following example from the PetClinic application shows a configuration using a
@@ -2151,7 +2151,7 @@ PropertyEditors required by several of the PetClinic controllers.
 	</bean>
 ----
 
-`@InitBinder` methods can also be defined in an ++@ControllerAdvice++-annotated class in
+`@InitBinder` methods can also be defined in an ``@ControllerAdvice``-annotated class in
 which case they apply to matching controllers. This provides an alternative to using a
 `WebBindingInitializer`. See the <<mvc-ann-controller-advice>> section for more details.
 
@@ -2541,7 +2541,7 @@ For applications configured with a `web.xml` be sure to update to version 3.0:
 ----
 
 Asynchronous support must be enabled on the `DispatcherServlet` through the
-`<async-supported>true</async-supported>` web.xml sub-element. Additionally
+`<async-supported>true</async-supported>` sub-element in `web.xml`. Additionally
 any `Filter` that participates in asyncrequest processing must be configured
 to support the ASYNC dispatcher type. It should be safe to enable the ASYNC
 dispatcher type for all filters provided with the Spring Framework since they
@@ -2626,7 +2626,7 @@ don't need to do that because the `RequestMappingHandlerMapping` automatically l
 all `HandlerMapping` classes extending from `AbstractHandlerMapping` have the following
 properties that you can use to customize their behavior:
 
-* `interceptors` List of interceptors to use. ++HandlerInterceptor++s are discussed in
+* `interceptors` List of interceptors to use. ``HandlerInterceptor``s are discussed in
   <<mvc-handlermapping-interceptor>>.
 * `defaultHandler` Default handler to use, when this handler mapping does not result in
   a matching handler.
@@ -2655,7 +2655,7 @@ The following example shows how to configure an interceptor:
 				<bean class="example.MyInterceptor"/>
 			</property>
 		</bean>
-	<beans>
+	</beans>
 ----
 
 
@@ -2703,7 +2703,7 @@ the example below:
 			<property name="openingTime" value="9"/>
 			<property name="closingTime" value="18"/>
 		</bean>
-	<beans>
+	</beans>
 ----
 
 [source,java,indent=0]
@@ -2772,7 +2772,7 @@ directly on `RequestMappingHandlerAdapter`.
 == Resolving views
 All MVC frameworks for web applications provide a way to address views. Spring provides
 view resolvers, which enable you to render models in a browser without tying you to a
-specific view technology. Out of the box, Spring enables you to use JSPs, Velocity
+specific view technology. Out of the box, Spring enables you to use JSPs, FreeMarker
 templates and XSLT views, for example. See <<view>> for a discussion of how to integrate
 and use a number of disparate view technologies.
 
@@ -2824,9 +2824,9 @@ examples follow.
   specify the view class for all views generated by this resolver by using
   `setViewClass(..)`. See the `UrlBasedViewResolver` javadocs for details.
 
-| `VelocityViewResolver` / `FreeMarkerViewResolver`
-| Convenient subclass of `UrlBasedViewResolver` that supports `VelocityView` (in effect,
-  Velocity templates) or `FreeMarkerView` ,respectively, and custom subclasses of them.
+| `FreeMarkerViewResolver`
+| Convenient subclass of `UrlBasedViewResolver` that supports `FreeMarkerView` and
+  custom subclasses of them.
 
 | `ContentNegotiatingViewResolver`
 | Implementation of the `ViewResolver` interface that resolves a view based on the
@@ -2876,7 +2876,7 @@ file "extend". This way you can specify a default view class, for example.
 Subclasses of `AbstractCachingViewResolver` cache view instances that they resolve.
 Caching improves performance of certain view technologies. It's possible to turn off the
 cache by setting the `cache` property to `false`. Furthermore, if you must refresh a
-certain view at runtime (for example when a Velocity template is modified), you can use
+certain view at runtime (for example when a FreeMarker template is modified), you can use
 the `removeFromCache(String viewName, Locale loc)` method.
 ====
 
@@ -2926,7 +2926,7 @@ indicate the view could not be found. Not all view resolvers do this, however, b
 in some cases, the resolver simply cannot detect whether or not the view exists. For
 example, the `InternalResourceViewResolver` uses the `RequestDispatcher` internally, and
 dispatching is the only way to figure out if a JSP exists, but this action can only
-execute once. The same holds for the `VelocityViewResolver` and some others. Check the
+execute once. The same holds for the `FreeMarkerViewResolver` and some others. Check the
 javadocs of the specific view resolver to see whether it reports non-existing views.
 Thus, putting an `InternalResourceViewResolver` in the chain in a place other than
 the last results in the chain not being fully inspected, because the
@@ -2942,7 +2942,7 @@ JSPs that are processed through the Servlet or JSP engine, this resolution is us
 handled through the combination of `InternalResourceViewResolver` and
 `InternalResourceView`, which issues an internal forward or include via the Servlet
 API's `RequestDispatcher.forward(..)` method or `RequestDispatcher.include()` method.
-For other view technologies, such as Velocity, XSLT, and so on, the view itself writes
+For other view technologies, such as FreeMarker, XSLT, and so on, the view itself writes
 the content directly to the response stream.
 
 It is sometimes desirable to issue an HTTP redirect back to the client, before the view
@@ -3331,7 +3331,7 @@ Spring MVC also provides a mechanism for building links to controller methods. F
 		public String getBooking(@PathVariable Long booking) {
 
 		// ...
-
+        }
 	}
 ----
 
@@ -3502,7 +3502,7 @@ maximum age. Find below an example of defining a `CookieLocaleResolver`.
 		<property name="cookieName" value="clientlanguage"/>
 
 		<!-- in seconds. If set to -1, the cookie is not persisted (deleted when browser shuts down) -->
-		<property name="cookieMaxAge" value="100000">
+		<property name="cookieMaxAge" value="100000"/>
 
 	</bean>
 ----
@@ -3991,7 +3991,8 @@ config). Listed below are some of the exceptions handled by this resolver and th
 corresponding status codes:
 
 |===
-| Exception| HTTP Status Code
+| Exception
+| HTTP Status Code
 
 | `BindException`
 | 400 (Bad Request)
@@ -4017,6 +4018,9 @@ corresponding status codes:
 | `MethodArgumentNotValidException`
 | 400 (Bad Request)
 
+| `MissingPathVariableException`
+| 500 (Internal Server Error)
+
 | `MissingServletRequestParameterException`
 | 400 (Bad Request)
 
@@ -4031,12 +4035,6 @@ corresponding status codes:
 
 | `TypeMismatchException`
 | 400 (Bad Request)
-
-| `MissingPathVariableException`
-| 500 (Internal Server Error)
-
-| `NoHandlerFoundException`
-| 404 (Not Found)
 |===
 
 The `DefaultHandlerExceptionResolver` works transparently by setting the status of the
@@ -4831,6 +4829,12 @@ is present on the classpath.
 .. `MappingJackson2XmlHttpMessageConverter` converts to/from XML -- added if
 https://github.com/FasterXML/jackson-dataformat-xml[Jackson 2 XML extension] is present
 on the classpath.
+.. `MappingJackson2SmileHttpMessageConverter` converts to/from Smile (binary JSON) -- added if
+https://github.com/FasterXML/jackson-dataformats-binary/tree/master/smile[Jackson 2 Smile extension]
+is present on the classpath.
+.. `MappingJackson2CborHttpMessageConverter` converts to/from CBOR -- added if
+https://github.com/FasterXML/jackson-dataformats-binary/tree/master/cbor[Jackson 2 CBOR extension]
+is present on the classpath.
 .. `AtomFeedHttpMessageConverter` converts Atom feeds -- added if Rome is present on the
 classpath.
 .. `RssChannelHttpMessageConverter` converts RSS feeds -- added if Rome is present on
@@ -5228,7 +5232,7 @@ And the same in XML:
 	</mvc:view-resolvers>
 ----
 
-Note however that FreeMarker, Velocity, Tiles, Groovy Markup and script templates also require
+Note however that FreeMarker, Tiles, Groovy Markup and script templates also require
 configuration of the underlying view technology.
 
 The MVC namespace provides dedicated elements. For example with FreeMarker:
@@ -5438,10 +5442,10 @@ XML example:
 In order for the above to work the application must also
 render URLs with versions. The easiest way to do that is to configure the
 `ResourceUrlEncodingFilter` which wraps the response and overrides its `encodeURL` method.
-This will work in JSPs, FreeMarker, Velocity, and any other view technology that calls
-the response `encodeURL` method. Alternatively, an application can also inject and
-use directly the `ResourceUrlProvider` bean, which is automatically declared with the MVC
-Java config and the MVC namespace.
+This will work in JSPs, FreeMarker, and any other view technology that calls the response
+`encodeURL` method. Alternatively, an application can also inject and use directly the
+`ResourceUrlProvider` bean, which is automatically declared with the MVC Java config and
+the MVC namespace.
 
 Webjars are also supported with `WebJarsResourceResolver`, which is automatically registered
 when the `"org.webjars:webjars-locator"` library is on classpath. This resolver allows

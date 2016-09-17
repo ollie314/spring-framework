@@ -35,7 +35,7 @@ public class DefaultRequestExpectation implements RequestExpectation {
 
 	private final RequestCount requestCount;
 
-	private final List<RequestMatcher> requestMatchers = new LinkedList<RequestMatcher>();
+	private final List<RequestMatcher> requestMatchers = new LinkedList<>();
 
 	private ResponseCreator responseCreator;
 
@@ -46,8 +46,8 @@ public class DefaultRequestExpectation implements RequestExpectation {
 	 * @param expectedCount the expected request expectedCount
 	 */
 	public DefaultRequestExpectation(ExpectedCount expectedCount, RequestMatcher requestMatcher) {
-		Assert.notNull(expectedCount, "'expectedCount' is required");
-		Assert.notNull(requestMatcher, "'requestMatcher' is required");
+		Assert.notNull(expectedCount, "ExpectedCount is required");
+		Assert.notNull(requestMatcher, "RequestMatcher is required");
 		this.requestCount = new RequestCount(expectedCount);
 		this.requestMatchers.add(requestMatcher);
 	}
@@ -88,9 +88,7 @@ public class DefaultRequestExpectation implements RequestExpectation {
 	@Override
 	public ClientHttpResponse createResponse(ClientHttpRequest request) throws IOException {
 		ResponseCreator responseCreator = getResponseCreator();
-		if (responseCreator == null) {
-			throw new IllegalStateException("createResponse called before ResponseCreator was set");
-		}
+		Assert.state(responseCreator != null, "createResponse() called before ResponseCreator was set");
 		getRequestCount().incrementAndValidate();
 		return responseCreator.createResponse(request);
 	}

@@ -238,6 +238,7 @@ public class HtmlUnitRequestBuilderTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	public void buildRequestInputStream() throws Exception {
 		String content = "some content that has length";
 		webRequest.setHttpMethod(HttpMethod.POST);
@@ -892,6 +893,20 @@ public class HtmlUnitRequestBuilderTests {
 				.build();
 
 		assertThat(mockMvc.perform(requestBuilder).andReturn().getRequest().getAttribute(attrName), equalTo(attrValue));
+	}
+
+	@Test // SPR-14584
+	public void mergeDoesNotCorruptPathInfoOnParent() throws Exception {
+		String pathInfo = "/foo/bar";
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new HelloController())
+				.defaultRequest(get("/"))
+				.build();
+
+		assertThat(mockMvc.perform(get(pathInfo)).andReturn().getRequest().getPathInfo(), equalTo(pathInfo));
+
+		mockMvc.perform(requestBuilder);
+
+		assertThat(mockMvc.perform(get(pathInfo)).andReturn().getRequest().getPathInfo(), equalTo(pathInfo));
 	}
 
 

@@ -53,7 +53,7 @@ public class ModelAndViewResolverMethodReturnValueHandlerTests {
 
 	@Before
 	public void setUp() {
-		mavResolvers = new ArrayList<ModelAndViewResolver>();
+		mavResolvers = new ArrayList<>();
 		handler = new ModelAndViewResolverMethodReturnValueHandler(mavResolvers);
 		mavContainer = new ModelAndViewContainer();
 		request = new ServletWebRequest(new MockHttpServletRequest());
@@ -126,8 +126,9 @@ public class ModelAndViewResolverMethodReturnValueHandlerTests {
 
 		@Override
 		@SuppressWarnings("rawtypes")
-		public ModelAndView resolveModelAndView(Method method, Class handlerType, Object returnValue,
+		public ModelAndView resolveModelAndView(Method method, Class<?> handlerType, Object returnValue,
 				ExtendedModelMap model, NativeWebRequest request) {
+
 			if (returnValue != null && returnValue.getClass().equals(returnValueType)) {
 				return new ModelAndView("viewName", "modelAttrName", returnValue);
 			}

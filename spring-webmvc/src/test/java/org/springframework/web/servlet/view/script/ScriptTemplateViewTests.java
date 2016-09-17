@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,16 +67,16 @@ public class ScriptTemplateViewTests {
 		this.view = new ScriptTemplateView();
 	}
 
+
 	@Test
 	public void missingScriptTemplateConfig() throws Exception {
 		try {
 			this.view.setApplicationContext(new StaticApplicationContext());
+			fail("Should have thrown ApplicationContextException");
 		}
 		catch (ApplicationContextException ex) {
 			assertTrue(ex.getMessage().contains("ScriptTemplateConfig"));
-			return;
 		}
-		fail();
 	}
 
 	@Test
@@ -158,7 +158,6 @@ public class ScriptTemplateViewTests {
 		}
 		catch (IllegalArgumentException ex) {
 			assertThat(ex.getMessage(), containsString("instance"));
-			return;
 		}
 	}
 
@@ -199,9 +198,7 @@ public class ScriptTemplateViewTests {
 		}
 		catch (IllegalArgumentException ex) {
 			assertThat(ex.getMessage(), containsString("sharedEngine"));
-			return;
 		}
-		fail();
 	}
 
 	@Test // SPR-14210
@@ -212,7 +209,7 @@ public class ScriptTemplateViewTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		request.setAttribute(DispatcherServlet.WEB_APPLICATION_CONTEXT_ATTRIBUTE, this.wac);
 		MockHttpServletResponse response = new MockHttpServletResponse();
-		Map<String, Object> model = new HashMap<String, Object>();
+		Map<String, Object> model = new HashMap<>();
 		InvocableScriptEngine engine = mock(InvocableScriptEngine.class);
 		when(engine.invokeFunction(any(), any(), any(), any())).thenReturn("foo");
 		this.view.setEngine(engine);
@@ -243,7 +240,7 @@ public class ScriptTemplateViewTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		request.setAttribute(DispatcherServlet.WEB_APPLICATION_CONTEXT_ATTRIBUTE, this.wac);
 		MockHttpServletResponse response = new MockHttpServletResponse();
-		Map<String, Object> model = new HashMap<String, Object>();
+		Map<String, Object> model = new HashMap<>();
 		this.view.setEngine(mock(InvocableScriptEngine.class));
 		this.view.setRenderFunction("render");
 		this.view.setResourceLoaderPath("classpath:org/springframework/web/servlet/view/script/");

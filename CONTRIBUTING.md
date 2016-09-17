@@ -33,32 +33,18 @@ do not find something similar, please create a new JIRA issue before submitting
 a pull request unless the change is truly trivial -- for example: typo fixes,
 removing compiler warnings, etc.
 
-### Sign the Individual Contributor License Agreement (ICLA)
+### Sign the Contributor License Agreement (CLA)
 
-If you have not previously done so, please fill out and submit the
-[Spring ICLA form][]. You'll receive a token when this process is complete.
-Keep track of this; you may be asked for it later!
-
-Note that emailing/postal mailing a signed copy is _not_ necessary. Submission
-of the web form is all that is required.
-
-Once you've completed the web form, simply add the following in a comment on
-your pull request:
-
-    I have signed and agree to the terms of the Spring Individual Contributor
-    License Agreement.
-
-You do not need to include your token/id. Please add the above statement to all
-future pull requests as well, simply so that the Spring Framework team knows
-immediately that this process is complete.
+If you have not previously done so, please sign the [Contributor License Agreement][].
+If you forget to do so, you'll be reminded when you submit a pull request.
 
 ## Create a Branch
 
 ### Branch from `master`
 
-Master currently represents work toward Spring Framework 4.0. Please submit
+Master currently represents work toward Spring Framework 5.0. Please submit
 all pull requests there, even bug fixes and minor improvements. Backports to
-`3.2.x` will be considered on a case-by-case basis.
+`4.3.x` will be considered on a case-by-case basis.
 
 
 ### Use short branch names
@@ -88,15 +74,14 @@ present in the framework.
 1. Preserve existing formatting; i.e. do not reformat code for its own sake
 1. Search the codebase using `git grep` and other tools to discover common
     naming conventions, etc.
-1. Latin-1 (ISO-8859-1) encoding for Java sources; use `native2ascii` to convert
-    if necessary
+1. UTF-8 encoding for Java sources
 
 
 ### Add Apache license header to all new classes
 
 ```java
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -124,11 +109,11 @@ modified a file in 2015 whose header still reads:
  * Copyright 2002-2011 the original author or authors.
 ```
 
-Then be sure to update it to 2015 accordingly:
+Then be sure to update it to 2016 accordingly:
 
 ```java
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
 ```
 
 ### Use @since tags for newly-added public API types and methods
@@ -309,10 +294,9 @@ Note that you can always force push (`git push -f`) reworked / rebased commits
 against the branch used to submit your pull request. In other words, you do not
 need to issue a new pull request when asked to make changes.
 
-[help documentation]: http://help.github.com/send-pull-requests
+[help documentation]: https://help.github.com/categories/collaborating-on-projects-using-issues-and-pull-requests/
 [JIRA issue tracker]: https://jira.spring.io/browse/SPR
-[spring-framework-contrib]: https://groups.google.com/forum/#!forum/spring-framework-contrib
-[Spring ICLA form]: https://support.springsource.com/spring_committer_signup
+[Contributor License Agreement]: https://cla.pivotal.io/sign/spring
 [fork-and-edit]: https://github.com/blog/844-forking-with-the-edit-button
 [Spring Framework Code Style]: https://github.com/spring-projects/spring-framework/wiki/Spring-Framework-Code-Style
 [Rewriting History section of Pro Git]: http://git-scm.com/book/en/Git-Tools-Rewriting-History
