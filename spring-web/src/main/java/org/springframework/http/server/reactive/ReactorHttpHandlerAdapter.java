@@ -18,15 +18,14 @@ package org.springframework.http.server.reactive;
 
 import java.util.function.Function;
 
+import io.netty.handler.codec.http.HttpResponseStatus;
 import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Mono;
 import reactor.ipc.netty.http.HttpChannel;
 
-import org.apache.commons.logging.LogFactory;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
 import org.springframework.util.Assert;
-
-import io.netty.handler.codec.http.HttpResponseStatus;
 
 /**
  * Adapt {@link HttpHandler} to the Reactor Netty channel handling function.
@@ -38,13 +37,12 @@ public class ReactorHttpHandlerAdapter implements Function<HttpChannel, Mono<Voi
 
 	private static Log logger = LogFactory.getLog(ReactorHttpHandlerAdapter.class);
 
+	private final HttpHandler delegate;
 
-	private final HttpHandler httpHandler;
 
-
-	public ReactorHttpHandlerAdapter(HttpHandler httpHandler) {
-		Assert.notNull(httpHandler, "'httpHandler' is required.");
-		this.httpHandler = httpHandler;
+	public ReactorHttpHandlerAdapter(HttpHandler delegate) {
+		Assert.notNull(delegate, "HttpHandler delegate is required");
+		this.delegate = delegate;
 	}
 
 
@@ -53,7 +51,8 @@ public class ReactorHttpHandlerAdapter implements Function<HttpChannel, Mono<Voi
 		NettyDataBufferFactory bufferFactory = new NettyDataBufferFactory(channel.delegate().alloc());
 		ReactorServerHttpRequest adaptedRequest = new ReactorServerHttpRequest(channel, bufferFactory);
 		ReactorServerHttpResponse adaptedResponse = new ReactorServerHttpResponse(channel, bufferFactory);
-		return this.httpHandler.handle(adaptedRequest, adaptedResponse)
+
+		return this.delegate.handle(adaptedRequest, adaptedResponse)
 				.otherwise(ex -> {
 					logger.debug("Could not complete request", ex);
 					channel.status(HttpResponseStatus.INTERNAL_SERVER_ERROR);
