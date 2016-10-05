@@ -35,7 +35,7 @@ import org.springframework.util.Assert;
  */
 public class ReactorHttpHandlerAdapter implements Function<HttpChannel, Mono<Void>> {
 
-	private static Log logger = LogFactory.getLog(ReactorHttpHandlerAdapter.class);
+	private static final Log logger = LogFactory.getLog(ReactorHttpHandlerAdapter.class);
 
 	private final HttpHandler delegate;
 
@@ -54,7 +54,7 @@ public class ReactorHttpHandlerAdapter implements Function<HttpChannel, Mono<Voi
 
 		return this.delegate.handle(adaptedRequest, adaptedResponse)
 				.otherwise(ex -> {
-					logger.debug("Could not complete request", ex);
+					logger.error("Could not complete request", ex);
 					channel.status(HttpResponseStatus.INTERNAL_SERVER_ERROR);
 					return Mono.empty();
 				})

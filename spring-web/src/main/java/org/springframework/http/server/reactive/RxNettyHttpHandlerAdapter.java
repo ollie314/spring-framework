@@ -39,7 +39,7 @@ import org.springframework.util.Assert;
  */
 public class RxNettyHttpHandlerAdapter implements RequestHandler<ByteBuf, ByteBuf> {
 
-	private static Log logger = LogFactory.getLog(RxNettyHttpHandlerAdapter.class);
+	private static final Log logger = LogFactory.getLog(RxNettyHttpHandlerAdapter.class);
 
 	private final HttpHandler delegate;
 
@@ -58,7 +58,7 @@ public class RxNettyHttpHandlerAdapter implements RequestHandler<ByteBuf, ByteBu
 
 		Publisher<Void> result = this.delegate.handle(adaptedRequest, adaptedResponse)
 				.otherwise(ex -> {
-					logger.debug("Could not complete request", ex);
+					logger.error("Could not complete request", ex);
 					response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
 					return Mono.empty();
 				})

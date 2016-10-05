@@ -48,7 +48,7 @@ public class ServletHttpHandlerAdapter extends HttpServlet {
 	private static final int DEFAULT_BUFFER_SIZE = 8192;
 
 
-	private static Log logger = LogFactory.getLog(ServletHttpHandlerAdapter.class);
+	private static final Log logger = LogFactory.getLog(ServletHttpHandlerAdapter.class);
 
 	private final HttpHandler handler;
 
@@ -114,7 +114,7 @@ public class ServletHttpHandlerAdapter extends HttpServlet {
 
 		@Override
 		public void onError(Throwable ex) {
-			logger.debug("Could not complete request", ex);
+			logger.error("Could not complete request", ex);
 			HttpServletResponse response = (HttpServletResponse) this.asyncContext.getResponse();
 			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 			this.asyncContext.complete();
