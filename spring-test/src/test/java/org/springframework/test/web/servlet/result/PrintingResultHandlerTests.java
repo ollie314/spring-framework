@@ -82,7 +82,6 @@ public class PrintingResultHandlerTests {
 		MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
 		params.add("param", "paramValue");
 
-
 		assertValue("MockHttpServletRequest", "HTTP Method", this.request.getMethod());
 		assertValue("MockHttpServletRequest", "Request URI", this.request.getRequestURI());
 		assertValue("MockHttpServletRequest", "Parameters", params);
@@ -137,6 +136,51 @@ public class PrintingResultHandlerTests {
 		assertTrue(cookie2.startsWith("[" + Cookie.class.getSimpleName()));
 		assertTrue(cookie2.contains("name = 'enigma', value = '42', comment = 'This is a comment', domain = '.example.com', maxAge = 1234, path = '/crumbs', secure = true, version = 0, httpOnly = true"));
 		assertTrue(cookie2.endsWith("]"));
+	}
+
+	@Test
+	public void printRequestWithCharacterEncoding() throws Exception {
+		this.request.setCharacterEncoding("UTF-8");
+		this.request.setContent("text".getBytes("UTF-8"));
+
+		this.handler.handle(this.mvcResult);
+
+		assertValue("MockHttpServletRequest", "Body", "text");
+	}
+
+	@Test
+	public void printRequestWithoutCharacterEncoding() throws Exception {
+		this.handler.handle(this.mvcResult);
+
+		assertValue("MockHttpServletRequest", "Body", "<no character encoding set>");
+	}
+
+	@Test
+	public void printResponseWithCharacterEncoding() throws Exception {
+		this.response.setCharacterEncoding("UTF-8");
+		this.response.getWriter().print("text");
+
+		this.handler.handle(this.mvcResult);
+		assertValue("MockHttpServletResponse", "Body", "text");
+	}
+
+	@Test
+	public void printResponseWithDefaultCharacterEncoding() throws Exception {
+		this.response.getWriter().print("text");
+
+		this.handler.handle(this.mvcResult);
+
+		assertValue("MockHttpServletResponse", "Body", "text");
+	}
+
+	@Test
+	public void printResponseWithoutCharacterEncoding() throws Exception {
+		this.response.setCharacterEncoding(null);
+		this.response.getWriter().print("text");
+
+		this.handler.handle(this.mvcResult);
+
+		assertValue("MockHttpServletResponse", "Body", "<no character encoding set>");
 	}
 
 	@Test

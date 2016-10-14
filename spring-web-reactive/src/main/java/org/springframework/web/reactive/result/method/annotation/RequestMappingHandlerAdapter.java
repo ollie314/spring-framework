@@ -34,17 +34,14 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.codec.ByteBufferDecoder;
 import org.springframework.core.codec.StringDecoder;
-import org.springframework.core.convert.ConversionService;
-import org.springframework.format.support.DefaultFormattingConversionService;
 import org.springframework.http.codec.DecoderHttpMessageReader;
 import org.springframework.http.codec.HttpMessageReader;
-import org.springframework.ui.ExtendedModelMap;
-import org.springframework.ui.ModelMap;
-import org.springframework.validation.Validator;
+import org.springframework.web.bind.support.WebBindingInitializer;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 import org.springframework.web.reactive.HandlerAdapter;
 import org.springframework.web.reactive.HandlerResult;
+import org.springframework.web.reactive.result.method.BindingContext;
 import org.springframework.web.reactive.result.method.HandlerMethodArgumentResolver;
 import org.springframework.web.reactive.result.method.InvocableHandlerMethod;
 import org.springframework.web.server.ServerWebExchange;
@@ -60,21 +57,20 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 	private static final Log logger = LogFactory.getLog(RequestMappingHandlerAdapter.class);
 
 
+	private final List<HttpMessageReader<?>> messageReaders = new ArrayList<>(10);
+
+	private WebBindingInitializer webBindingInitializer;
+
+	private ReactiveAdapterRegistry reactiveAdapters = new ReactiveAdapterRegistry();
+
 	private List<HandlerMethodArgumentResolver> customArgumentResolvers;
 
 	private List<HandlerMethodArgumentResolver> argumentResolvers;
 
-	private final List<HttpMessageReader<?>> messageReaders = new ArrayList<>(10);
-
-	private ReactiveAdapterRegistry reactiveAdapters = new ReactiveAdapterRegistry();
-
-	private ConversionService conversionService = new DefaultFormattingConversionService();
-
-	private Validator validator;
-
 	private ConfigurableBeanFactory beanFactory;
 
-	private final Map<Class<?>, ExceptionHandlerMethodResolver> exceptionHandlerCache = new ConcurrentHashMap<>(64);
+	private final Map<Class<?>, ExceptionHandlerMethodResolver> exceptionHandlerCache =
+			new ConcurrentHashMap<>(64);
 
 
 
@@ -83,6 +79,44 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 		this.messageReaders.add(new DecoderHttpMessageReader<>(new StringDecoder()));
 	}
 
+
+	/**
+	 * Configure message readers to de-serialize the request body with.
+	 */
+	public void setMessageReaders(List<HttpMessageReader<?>> messageReaders) {
+		this.messageReaders.clear();
+		this.messageReaders.addAll(messageReaders);
+	}
+
+	/**
+	 * Return the configured message readers.
+	 */
+	public List<HttpMessageReader<?>> getMessageReaders() {
+		return this.messageReaders;
+	}
+
+	/**
+	 * Provide a WebBindingInitializer with "global" initialization to apply
+	 * to every DataBinder instance.
+	 */
+	public void setWebBindingInitializer(WebBindingInitializer webBindingInitializer) {
+		this.webBindingInitializer = webBindingInitializer;
+	}
+
+	/**
+	 * Return the configured WebBindingInitializer, or {@code null} if none.
+	 */
+	public WebBindingInitializer getWebBindingInitializer() {
+		return this.webBindingInitializer;
+	}
+
+	public void setReactiveAdapterRegistry(ReactiveAdapterRegistry registry) {
+		this.reactiveAdapters = registry;
+	}
+
+	public ReactiveAdapterRegistry getReactiveAdapterRegistry() {
+		return this.reactiveAdapters;
+	}
 
 	/**
 	 * Provide custom argument resolvers without overriding the built-in ones.
@@ -114,64 +148,6 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 	}
 
 	/**
-	 * Configure message readers to de-serialize the request body with.
-	 */
-	public void setMessageReaders(List<HttpMessageReader<?>> messageReaders) {
-		this.messageReaders.clear();
-		this.messageReaders.addAll(messageReaders);
-	}
-
-	/**
-	 * Return the configured message readers.
-	 */
-	public List<HttpMessageReader<?>> getMessageReaders() {
-		return this.messageReaders;
-	}
-
-	public void setReactiveAdapterRegistry(ReactiveAdapterRegistry registry) {
-		this.reactiveAdapters = registry;
-	}
-
-	public ReactiveAdapterRegistry getReactiveAdapterRegistry() {
-		return this.reactiveAdapters;
-	}
-
-	/**
-	 * Configure a ConversionService for type conversion of controller method
-	 * arguments as well as for converting from different async types to
-	 * {@code Flux} and {@code Mono}.
-	 *
-	 * TODO: this may be replaced by DataBinder
-	 */
-	public void setConversionService(ConversionService conversionService) {
-		this.conversionService = conversionService;
-	}
-
-	/**
-	 * Return the configured ConversionService.
-	 */
-	public ConversionService getConversionService() {
-		return this.conversionService;
-	}
-
-	/**
-	 * Configure a Validator for validation of controller method arguments such
-	 * as {@code @RequestBody}.
-	 *
-	 * TODO: this may be replaced by DataBinder
-	 */
-	public void setValidator(Validator validator) {
-		this.validator = validator;
-	}
-
-	/**
-	 * Return the configured Validator.
-	 */
-	public Validator getValidator() {
-		return this.validator;
-	}
-
-	/**
 	 * A {@link ConfigurableBeanFactory} is expected for resolving expressions
 	 * in method argument default values.
 	 */
@@ -197,24 +173,23 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 	protected List<HandlerMethodArgumentResolver> initArgumentResolvers() {
 		List<HandlerMethodArgumentResolver> resolvers = new ArrayList<>();
 
-		ConversionService cs = getConversionService();
 		ReactiveAdapterRegistry adapterRegistry = getReactiveAdapterRegistry();
 
 		// Annotation-based argument resolution
-		resolvers.add(new RequestParamMethodArgumentResolver(cs, getBeanFactory(), false));
+		resolvers.add(new RequestParamMethodArgumentResolver(getBeanFactory(), false));
 		resolvers.add(new RequestParamMapMethodArgumentResolver());
-		resolvers.add(new PathVariableMethodArgumentResolver(cs, getBeanFactory()));
+		resolvers.add(new PathVariableMethodArgumentResolver(getBeanFactory()));
 		resolvers.add(new PathVariableMapMethodArgumentResolver());
-		resolvers.add(new RequestBodyArgumentResolver(getMessageReaders(), getValidator(), adapterRegistry));
-		resolvers.add(new RequestHeaderMethodArgumentResolver(cs, getBeanFactory()));
+		resolvers.add(new RequestBodyArgumentResolver(getMessageReaders(), adapterRegistry));
+		resolvers.add(new RequestHeaderMethodArgumentResolver(getBeanFactory()));
 		resolvers.add(new RequestHeaderMapMethodArgumentResolver());
-		resolvers.add(new CookieValueMethodArgumentResolver(cs, getBeanFactory()));
-		resolvers.add(new ExpressionValueMethodArgumentResolver(cs, getBeanFactory()));
-		resolvers.add(new SessionAttributeMethodArgumentResolver(cs, getBeanFactory()));
-		resolvers.add(new RequestAttributeMethodArgumentResolver(cs , getBeanFactory()));
+		resolvers.add(new CookieValueMethodArgumentResolver(getBeanFactory()));
+		resolvers.add(new ExpressionValueMethodArgumentResolver(getBeanFactory()));
+		resolvers.add(new SessionAttributeMethodArgumentResolver(getBeanFactory()));
+		resolvers.add(new RequestAttributeMethodArgumentResolver(getBeanFactory()));
 
 		// Type-based argument resolution
-		resolvers.add(new HttpEntityArgumentResolver(getMessageReaders(), getValidator(), adapterRegistry));
+		resolvers.add(new HttpEntityArgumentResolver(getMessageReaders(), adapterRegistry));
 		resolvers.add(new ModelArgumentResolver());
 		resolvers.add(new ServerWebExchangeArgumentResolver());
 
@@ -224,7 +199,7 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 		}
 
 		// Catch-all
-		resolvers.add(new RequestParamMethodArgumentResolver(cs, getBeanFactory(), true));
+		resolvers.add(new RequestParamMethodArgumentResolver(getBeanFactory(), true));
 		return resolvers;
 	}
 
@@ -238,14 +213,16 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 		HandlerMethod handlerMethod = (HandlerMethod) handler;
 		InvocableHandlerMethod invocable = new InvocableHandlerMethod(handlerMethod);
 		invocable.setHandlerMethodArgumentResolvers(getArgumentResolvers());
-		ModelMap model = new ExtendedModelMap();
-		return invocable.invokeForRequest(exchange, model)
-				.map(result -> result.setExceptionHandler(ex -> handleException(ex, handlerMethod, exchange)))
-				.otherwise(ex -> handleException(ex, handlerMethod, exchange));
+		BindingContext bindingContext = new BindingContext(getWebBindingInitializer());
+		return invocable.invokeForRequest(exchange, bindingContext)
+				.map(result -> result.setExceptionHandler(
+						ex -> handleException(ex, handlerMethod, bindingContext, exchange)))
+				.otherwise(ex -> handleException(
+						ex, handlerMethod, bindingContext, exchange));
 	}
 
 	private Mono<HandlerResult> handleException(Throwable ex, HandlerMethod handlerMethod,
-			ServerWebExchange exchange) {
+			BindingContext bindingContext, ServerWebExchange exchange) {
 
 		if (ex instanceof Exception) {
 			InvocableHandlerMethod invocable = findExceptionHandler(handlerMethod, (Exception) ex);
@@ -255,8 +232,8 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 						logger.debug("Invoking @ExceptionHandler method: " + invocable);
 					}
 					invocable.setHandlerMethodArgumentResolvers(getArgumentResolvers());
-					ExtendedModelMap errorModel = new ExtendedModelMap();
-					return invocable.invokeForRequest(exchange, errorModel, ex);
+					bindingContext.getModel().clear();
+					return invocable.invokeForRequest(exchange, bindingContext, ex);
 				}
 				catch (Exception invocationEx) {
 					if (logger.isErrorEnabled()) {

@@ -45,6 +45,8 @@ import org.springframework.http.codec.DecoderHttpMessageReader;
 import org.springframework.http.codec.EncoderHttpMessageWriter;
 import org.springframework.http.codec.HttpMessageReader;
 import org.springframework.http.codec.HttpMessageWriter;
+import org.springframework.http.codec.Jackson2ServerHttpMessageReader;
+import org.springframework.http.codec.Jackson2ServerHttpMessageWriter;
 import org.springframework.http.codec.ResourceHttpMessageWriter;
 import org.springframework.http.codec.ServerSentEventHttpMessageWriter;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
@@ -53,15 +55,17 @@ import org.springframework.http.codec.xml.Jaxb2XmlDecoder;
 import org.springframework.http.codec.xml.Jaxb2XmlEncoder;
 import org.springframework.util.ClassUtils;
 import org.springframework.validation.Errors;
+import org.springframework.validation.MessageCodesResolver;
 import org.springframework.validation.Validator;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.support.ConfigurableWebBindingInitializer;
+import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.reactive.HandlerMapping;
 import org.springframework.web.reactive.accept.CompositeContentTypeResolver;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolverBuilder;
 import org.springframework.web.reactive.handler.AbstractHandlerMapping;
 import org.springframework.web.reactive.result.SimpleHandlerAdapter;
 import org.springframework.web.reactive.result.method.HandlerMethodArgumentResolver;
-import org.springframework.http.codec.Jackson2ServerHttpMessageReader;
-import org.springframework.http.codec.Jackson2ServerHttpMessageWriter;
 import org.springframework.web.reactive.result.method.annotation.RequestMappingHandlerAdapter;
 import org.springframework.web.reactive.result.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.web.reactive.result.method.annotation.ResponseBodyResultHandler;
@@ -82,12 +86,16 @@ import org.springframework.web.server.ServerWebExchange;
 public class WebReactiveConfiguration implements ApplicationContextAware {
 
 	private static final boolean jackson2Present =
-			ClassUtils.isPresent("com.fasterxml.jackson.databind.ObjectMapper", WebReactiveConfiguration.class.getClassLoader()) &&
-			ClassUtils.isPresent("com.fasterxml.jackson.core.JsonGenerator", WebReactiveConfiguration.class.getClassLoader());
+			ClassUtils.isPresent("com.fasterxml.jackson.databind.ObjectMapper",
+					WebReactiveConfiguration.class.getClassLoader()) &&
+			ClassUtils.isPresent("com.fasterxml.jackson.core.JsonGenerator",
+					WebReactiveConfiguration.class.getClassLoader());
 
 	private static final boolean jaxb2Present =
 			ClassUtils.isPresent("javax.xml.bind.Binder", WebReactiveConfiguration.class.getClassLoader());
 
+
+	private Map<String, CorsConfiguration> corsConfigurations;
 
 	private PathMatchConfigurer pathMatchConfigurer;
 
@@ -112,7 +120,8 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 	public RequestMappingHandlerMapping requestMappingHandlerMapping() {
 		RequestMappingHandlerMapping mapping = createRequestMappingHandlerMapping();
 		mapping.setOrder(0);
-		mapping.setContentTypeResolver(mvcContentTypeResolver());
+		mapping.setContentTypeResolver(webReactiveContentTypeResolver());
+		mapping.setCorsConfigurations(getCorsConfigurations());
 
 		PathMatchConfigurer configurer = getPathMatchConfigurer();
 		if (configurer.isUseSuffixPatternMatch() != null) {
@@ -142,7 +151,7 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 	}
 
 	@Bean
-	public CompositeContentTypeResolver mvcContentTypeResolver() {
+	public CompositeContentTypeResolver webReactiveContentTypeResolver() {
 		RequestedContentTypeResolverBuilder builder = new RequestedContentTypeResolverBuilder();
 		builder.mediaTypes(getDefaultMediaTypeMappings());
 		configureRequestedContentTypeResolver(builder);
@@ -165,6 +174,26 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 	 * Override to configure how the requested content type is resolved.
 	 */
 	protected void configureRequestedContentTypeResolver(RequestedContentTypeResolverBuilder builder) {
+	}
+
+	/**
+	 * Callback for building the global CORS configuration. This method is final.
+	 * Use {@link #addCorsMappings(CorsRegistry)} to customize the CORS conifg.
+	 */
+	protected final Map<String, CorsConfiguration> getCorsConfigurations() {
+		if (this.corsConfigurations == null) {
+			CorsRegistry registry = new CorsRegistry();
+			addCorsMappings(registry);
+			this.corsConfigurations = registry.getCorsConfigurations();
+		}
+		return this.corsConfigurations;
+	}
+
+	/**
+	 * Override this method to configure cross origin requests processing.
+	 * @see CorsRegistry
+	 */
+	protected void addCorsMappings(CorsRegistry registry) {
 	}
 
 	/**
@@ -193,7 +222,7 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 	@Bean
 	public HandlerMapping resourceHandlerMapping() {
 		ResourceHandlerRegistry registry =
-				new ResourceHandlerRegistry(this.applicationContext, mvcContentTypeResolver());
+				new ResourceHandlerRegistry(this.applicationContext, webReactiveContentTypeResolver());
 		addResourceHandlers(registry);
 
 		AbstractHandlerMapping handlerMapping = registry.getHandlerMapping();
@@ -205,6 +234,7 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 			if (pathMatchConfigurer.getPathHelper() != null) {
 				handlerMapping.setPathHelper(pathMatchConfigurer.getPathHelper());
 			}
+
 		}
 		else {
 			handlerMapping = new EmptyHandlerMapping();
@@ -222,16 +252,14 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 	@Bean
 	public RequestMappingHandlerAdapter requestMappingHandlerAdapter() {
 		RequestMappingHandlerAdapter adapter = createRequestMappingHandlerAdapter();
+		adapter.setMessageReaders(getMessageReaders());
+		adapter.setWebBindingInitializer(getConfigurableWebBindingInitializer());
 
 		List<HandlerMethodArgumentResolver> resolvers = new ArrayList<>();
 		addArgumentResolvers(resolvers);
 		if (!resolvers.isEmpty()) {
 			adapter.setCustomArgumentResolvers(resolvers);
 		}
-
-		adapter.setMessageReaders(getMessageReaders());
-		adapter.setConversionService(mvcConversionService());
-		adapter.setValidator(mvcValidator());
 
 		return adapter;
 	}
@@ -289,7 +317,8 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 			readers.add(new DecoderHttpMessageReader<>(new Jaxb2XmlDecoder()));
 		}
 		if (jackson2Present) {
-			readers.add(new Jackson2ServerHttpMessageReader(new  DecoderHttpMessageReader<>(new Jackson2JsonDecoder())));
+			readers.add(new Jackson2ServerHttpMessageReader(
+					new  DecoderHttpMessageReader<>(new Jackson2JsonDecoder())));
 		}
 	}
 
@@ -300,8 +329,20 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 	protected void extendMessageReaders(List<HttpMessageReader<?>> messageReaders) {
 	}
 
+	/**
+	 * Return the {@link ConfigurableWebBindingInitializer} to use for
+	 * initializing all {@link WebDataBinder} instances.
+	 */
+	protected ConfigurableWebBindingInitializer getConfigurableWebBindingInitializer() {
+		ConfigurableWebBindingInitializer initializer = new ConfigurableWebBindingInitializer();
+		initializer.setConversionService(webReactiveConversionService());
+		initializer.setValidator(webReactiveValidator());
+		initializer.setMessageCodesResolver(getMessageCodesResolver());
+		return initializer;
+	}
+
 	@Bean
-	public FormattingConversionService mvcConversionService() {
+	public FormattingConversionService webReactiveConversionService() {
 		FormattingConversionService service = new DefaultFormattingConversionService();
 		addFormatters(service);
 		return service;
@@ -322,7 +363,7 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 	 * implementation is not available, a "no-op" {@link Validator} is returned.
 	 */
 	@Bean
-	public Validator mvcValidator() {
+	public Validator webReactiveValidator() {
 		Validator validator = getValidator();
 		if (validator == null) {
 			if (ClassUtils.isPresent("javax.validation.Validator", getClass().getClassLoader())) {
@@ -353,6 +394,13 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 		return null;
 	}
 
+	/**
+	 * Override this method to provide a custom {@link MessageCodesResolver}.
+	 */
+	protected MessageCodesResolver getMessageCodesResolver() {
+		return null;
+	}
+
 	@Bean
 	public SimpleHandlerAdapter simpleHandlerAdapter() {
 		return new SimpleHandlerAdapter();
@@ -360,12 +408,12 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 
 	@Bean
 	public ResponseEntityResultHandler responseEntityResultHandler() {
-		return new ResponseEntityResultHandler(getMessageWriters(), mvcContentTypeResolver());
+		return new ResponseEntityResultHandler(getMessageWriters(), webReactiveContentTypeResolver());
 	}
 
 	@Bean
 	public ResponseBodyResultHandler responseBodyResultHandler() {
-		return new ResponseBodyResultHandler(getMessageWriters(), mvcContentTypeResolver());
+		return new ResponseBodyResultHandler(getMessageWriters(), webReactiveContentTypeResolver());
 	}
 
 	/**
@@ -406,10 +454,11 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 			writers.add(new EncoderHttpMessageWriter<>(new Jaxb2XmlEncoder()));
 		}
 		if (jackson2Present) {
-			Jackson2JsonEncoder jacksonEncoder = new Jackson2JsonEncoder();
-			writers.add(new Jackson2ServerHttpMessageWriter(new EncoderHttpMessageWriter<>(jacksonEncoder)));
-			sseDataEncoders.add(jacksonEncoder);
-			writers.add(new Jackson2ServerHttpMessageWriter(new ServerSentEventHttpMessageWriter(sseDataEncoders)));
+			Jackson2JsonEncoder encoder = new Jackson2JsonEncoder();
+			writers.add(new Jackson2ServerHttpMessageWriter(encoder));
+			sseDataEncoders.add(encoder);
+			HttpMessageWriter<Object> writer = new ServerSentEventHttpMessageWriter(sseDataEncoders);
+			writers.add(new Jackson2ServerHttpMessageWriter(writer));
 		}
 		else {
 			writers.add(new ServerSentEventHttpMessageWriter(sseDataEncoders));
@@ -427,7 +476,7 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 		ViewResolverRegistry registry = new ViewResolverRegistry(getApplicationContext());
 		configureViewResolvers(registry);
 		List<ViewResolver> resolvers = registry.getViewResolvers();
-		ViewResolutionResultHandler handler = new ViewResolutionResultHandler(resolvers, mvcContentTypeResolver());
+		ViewResolutionResultHandler handler = new ViewResolutionResultHandler(resolvers, webReactiveContentTypeResolver());
 		handler.setDefaultViews(registry.getDefaultViews());
 		handler.setOrder(registry.getOrder());
 		return handler;
@@ -444,7 +493,7 @@ public class WebReactiveConfiguration implements ApplicationContextAware {
 	private static final class EmptyHandlerMapping extends AbstractHandlerMapping {
 
 		@Override
-		public Mono<Object> getHandler(ServerWebExchange exchange) {
+		public Mono<Object> getHandlerInternal(ServerWebExchange exchange) {
 			return Mono.empty();
 		}
 	}

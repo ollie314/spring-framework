@@ -48,7 +48,8 @@ import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.validation.Validator;
-import org.springframework.validation.beanvalidation.OptionalValidatorFactoryBean;
+import org.springframework.web.bind.WebExchangeDataBinder;
+import org.springframework.web.bind.support.WebBindingInitializer;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolver;
 import org.springframework.web.reactive.handler.AbstractHandlerMapping;
 import org.springframework.web.reactive.handler.SimpleUrlHandlerMapping;
@@ -111,7 +112,7 @@ public class WebReactiveConfigurationTests {
 		assertTrue(mapping.useTrailingSlashMatch());
 		assertTrue(mapping.useRegisteredSuffixPatternMatch());
 
-		name = "mvcContentTypeResolver";
+		name = "webReactiveContentTypeResolver";
 		RequestedContentTypeResolver resolver = context.getBean(name, RequestedContentTypeResolver.class);
 		assertSame(resolver, mapping.getContentTypeResolver());
 
@@ -153,14 +154,18 @@ public class WebReactiveConfigurationTests {
 		assertHasMessageReader(readers, TestBean.class, APPLICATION_JSON);
 		assertHasMessageReader(readers, TestBean.class, null);
 
-		name = "mvcConversionService";
-		ConversionService service = context.getBean(name, ConversionService.class);
-		assertSame(service, adapter.getConversionService());
+		WebBindingInitializer bindingInitializer = adapter.getWebBindingInitializer();
+		assertNotNull(bindingInitializer);
+		WebExchangeDataBinder binder = new WebExchangeDataBinder(new Object());
+		bindingInitializer.initBinder(binder);
 
-		name = "mvcValidator";
+		name = "webReactiveConversionService";
+		ConversionService service = context.getBean(name, ConversionService.class);
+		assertSame(service, binder.getConversionService());
+
+		name = "webReactiveValidator";
 		Validator validator = context.getBean(name, Validator.class);
-		assertSame(validator, adapter.getValidator());
-		assertEquals(OptionalValidatorFactoryBean.class, validator.getClass());
+		assertSame(validator, binder.getValidator());
 	}
 
 	@Test
@@ -198,7 +203,7 @@ public class WebReactiveConfigurationTests {
 		assertHasMessageWriter(writers, TestBean.class, APPLICATION_JSON);
 		assertHasMessageWriter(writers, TestBean.class, MediaType.parseMediaType("text/event-stream"));
 
-		name = "mvcContentTypeResolver";
+		name = "webReactiveContentTypeResolver";
 		RequestedContentTypeResolver resolver = context.getBean(name, RequestedContentTypeResolver.class);
 		assertSame(resolver, handler.getContentTypeResolver());
 	}
@@ -223,7 +228,7 @@ public class WebReactiveConfigurationTests {
 		assertHasMessageWriter(writers, TestBean.class, APPLICATION_JSON);
 		assertHasMessageWriter(writers, TestBean.class, null);
 
-		name = "mvcContentTypeResolver";
+		name = "webReactiveContentTypeResolver";
 		RequestedContentTypeResolver resolver = context.getBean(name, RequestedContentTypeResolver.class);
 		assertSame(resolver, handler.getContentTypeResolver());
 	}
