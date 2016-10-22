@@ -45,11 +45,12 @@ import org.springframework.web.reactive.HandlerAdapter;
 import org.springframework.web.reactive.HandlerMapping;
 import org.springframework.web.reactive.config.WebReactiveConfigurationSupport;
 import org.springframework.web.reactive.function.support.HandlerFunctionAdapter;
-import org.springframework.web.reactive.function.support.ResponseResultHandler;
+import org.springframework.web.reactive.function.support.ServerResponseResultHandler;
 import org.springframework.web.reactive.result.view.ViewResolver;
 import org.springframework.web.server.adapter.WebHttpHandlerBuilder;
 
 import static org.junit.Assert.assertEquals;
+import static org.springframework.http.codec.BodyInserters.fromPublisher;
 import static org.springframework.web.reactive.function.RouterFunctions.route;
 
 /**
@@ -120,7 +121,7 @@ public class DispatcherHandlerIntegrationTests extends AbstractHttpHandlerIntegr
 		public HandlerMapping handlerMapping(RouterFunction<?> routerFunction,
 				ApplicationContext applicationContext) {
 			return RouterFunctions.toHandlerMapping(routerFunction,
-					new StrategiesSupplier() {
+					new HandlerStrategies() {
 						@Override
 						public Supplier<Stream<HttpMessageReader<?>>> messageReaders() {
 							return () -> getMessageReaders().stream();
@@ -146,23 +147,23 @@ public class DispatcherHandlerIntegrationTests extends AbstractHttpHandlerIntegr
 		}
 
 		@Bean
-		public ResponseResultHandler responseResultHandler() {
-			return new ResponseResultHandler();
+		public ServerResponseResultHandler responseResultHandler() {
+			return new ServerResponseResultHandler();
 		}
 	}
 	
 	private static class PersonHandler {
 
-		public Response<Publisher<Person>> mono(Request request) {
+		public ServerResponse<Publisher<Person>> mono(ServerRequest request) {
 			Person person = new Person("John");
-			return Response.ok().body(BodyInserters.fromPublisher(Mono.just(person), Person.class));
+			return ServerResponse.ok().body(fromPublisher(Mono.just(person), Person.class));
 		}
 
-		public Response<Publisher<Person>> flux(Request request) {
+		public ServerResponse<Publisher<Person>> flux(ServerRequest request) {
 			Person person1 = new Person("John");
 			Person person2 = new Person("Jane");
-			return Response.ok().body(
-					BodyInserters.fromPublisher(Flux.just(person1, person2), Person.class));
+			return ServerResponse.ok().body(
+					fromPublisher(Flux.just(person1, person2), Person.class));
 		}
 
 	}

@@ -25,8 +25,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.BodyExtractor;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.util.Assert;
 import org.springframework.util.PathMatcher;
@@ -88,13 +93,13 @@ public abstract class RequestPredicates {
 	 * @param headersPredicate a predicate that tests against the request headers
 	 * @return a predicate that tests against the given header predicate
 	 */
-	public static RequestPredicate headers(Predicate<Request.Headers> headersPredicate) {
+	public static RequestPredicate headers(Predicate<ServerRequest.Headers> headersPredicate) {
 		return new HeaderPredicates(headersPredicate);
 	}
 
 	/**
 	 * Return a {@code RequestPredicate} that tests if the request's
-	 * {@linkplain Request.Headers#contentType() content type} is {@linkplain MediaType#includes(MediaType) included}
+	 * {@linkplain ServerRequest.Headers#contentType() content type} is {@linkplain MediaType#includes(MediaType) included}
 	 * by any of the given media types.
 	 *
 	 * @param mediaTypes the media types to match the request's content type against
@@ -113,7 +118,7 @@ public abstract class RequestPredicates {
 
 	/**
 	 * Return a {@code RequestPredicate} that tests if the request's
-	 * {@linkplain Request.Headers#accept() accept} header is
+	 * {@linkplain ServerRequest.Headers#accept() accept} header is
 	 * {@linkplain MediaType#isCompatibleWith(MediaType) compatible} with any of the given media types.
 	 *
 	 * @param mediaTypes the media types to match the request's accept header against
@@ -225,7 +230,7 @@ public abstract class RequestPredicates {
 		}
 
 		@Override
-		public boolean test(Request request) {
+		public boolean test(ServerRequest request) {
 			return this.httpMethod == request.method();
 		}
 	}
@@ -244,11 +249,11 @@ public abstract class RequestPredicates {
 		}
 
 		@Override
-		public boolean test(Request request) {
+		public boolean test(ServerRequest request) {
 			String path = request.path();
 			if (this.pathMatcher.match(this.pattern, path)) {
-				if (request instanceof DefaultRequest) {
-					DefaultRequest defaultRequest = (DefaultRequest) request;
+				if (request instanceof DefaultServerRequest) {
+					DefaultServerRequest defaultRequest = (DefaultServerRequest) request;
 					Map<String, String> uriTemplateVariables = this.pathMatcher.extractUriTemplateVariables(this.pattern, path);
 					defaultRequest.exchange().getAttributes().put(RouterFunctions.URI_TEMPLATE_VARIABLES_ATTRIBUTE, uriTemplateVariables);
 				}
@@ -260,35 +265,35 @@ public abstract class RequestPredicates {
 		}
 
 		@Override
-		public Request subRequest(Request request) {
+		public ServerRequest subRequest(ServerRequest request) {
 			String requestPath = request.path();
 			String subPath = this.pathMatcher.extractPathWithinPattern(this.pattern, requestPath);
-			return new SubPathRequestWrapper(request, subPath);
+			return new SubPathServerRequestWrapper(request, subPath);
 		}
 	}
 
 	private static class HeaderPredicates implements RequestPredicate {
 
-		private final Predicate<Request.Headers> headersPredicate;
+		private final Predicate<ServerRequest.Headers> headersPredicate;
 
-		public HeaderPredicates(Predicate<Request.Headers> headersPredicate) {
+		public HeaderPredicates(Predicate<ServerRequest.Headers> headersPredicate) {
 			Assert.notNull(headersPredicate, "'headersPredicate' must not be null");
 			this.headersPredicate = headersPredicate;
 		}
 
 		@Override
-		public boolean test(Request request) {
+		public boolean test(ServerRequest request) {
 			return this.headersPredicate.test(request.headers());
 		}
 	}
 
-	private static class SubPathRequestWrapper implements Request {
+	private static class SubPathServerRequestWrapper implements ServerRequest {
 
-		private final Request request;
+		private final ServerRequest request;
 
 		private final String subPath;
 
-		public SubPathRequestWrapper(Request request, String subPath) {
+		public SubPathServerRequestWrapper(ServerRequest request, String subPath) {
 			this.request = request;
 			this.subPath = subPath;
 		}
@@ -314,8 +319,18 @@ public abstract class RequestPredicates {
 		}
 
 		@Override
-		public <T> T body(BodyExtractor<T> extractor) {
+		public <T> T body(BodyExtractor<T, ? super ServerHttpRequest> extractor) {
 			return this.request.body(extractor);
+		}
+
+		@Override
+		public <T> Mono<T> bodyToMono(Class<? extends T> elementClass) {
+			return this.request.bodyToMono(elementClass);
+		}
+
+		@Override
+		public <T> Flux<T> bodyToFlux(Class<? extends T> elementClass) {
+			return this.request.bodyToFlux(elementClass);
 		}
 
 		@Override
@@ -334,7 +349,7 @@ public abstract class RequestPredicates {
 		}
 
 		@Override
-		public Optional<String> pathVariable(String name) {
+		public String pathVariable(String name) {
 			return this.request.pathVariable(name);
 		}
 
