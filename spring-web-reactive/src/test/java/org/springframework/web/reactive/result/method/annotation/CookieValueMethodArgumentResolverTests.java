@@ -21,6 +21,7 @@ import java.lang.reflect.Method;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.MethodParameter;
@@ -30,18 +31,15 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.reactive.result.method.BindingContext;
+import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 import org.springframework.web.server.adapter.DefaultServerWebExchange;
 import org.springframework.web.server.session.MockWebSessionManager;
 import org.springframework.web.server.session.WebSessionManager;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * Test fixture with {@link CookieValueMethodArgumentResolver}.
@@ -119,9 +117,10 @@ public class CookieValueMethodArgumentResolverTests {
 	@Test
 	public void notFound() {
 		Mono<Object> mono = resolver.resolveArgument(this.cookieParameter, this.bindingContext, this.exchange);
-		TestSubscriber
-				.subscribe(mono)
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create(mono)
+				.expectNextCount(0)
+				.expectError(ServerWebInputException.class)
+				.verify();
 	}
 
 

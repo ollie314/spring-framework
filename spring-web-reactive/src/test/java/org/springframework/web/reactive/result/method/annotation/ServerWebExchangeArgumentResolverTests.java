@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.web.reactive.result.method.annotation;
 
 import org.junit.Before;
@@ -25,19 +26,15 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
+import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.reactive.result.ResolvableMethod;
-import org.springframework.web.reactive.result.method.BindingContext;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebSession;
 import org.springframework.web.server.adapter.DefaultServerWebExchange;
 import org.springframework.web.server.session.WebSessionManager;
 
-import static junit.framework.TestCase.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link ServerWebExchangeArgumentResolver}.
@@ -69,7 +66,6 @@ public class ServerWebExchangeArgumentResolverTests {
 		assertTrue(this.resolver.supportsParameter(parameter(ServerWebExchange.class)));
 		assertTrue(this.resolver.supportsParameter(parameter(ServerHttpRequest.class)));
 		assertTrue(this.resolver.supportsParameter(parameter(ServerHttpResponse.class)));
-		assertTrue(this.resolver.supportsParameter(parameter(WebSession.class)));
 		assertTrue(this.resolver.supportsParameter(parameter(HttpMethod.class)));
 		assertFalse(this.resolver.supportsParameter(parameter(String.class)));
 	}
@@ -79,7 +75,6 @@ public class ServerWebExchangeArgumentResolverTests {
 		testResolveArgument(parameter(ServerWebExchange.class), this.exchange);
 		testResolveArgument(parameter(ServerHttpRequest.class), this.exchange.getRequest());
 		testResolveArgument(parameter(ServerHttpResponse.class), this.exchange.getResponse());
-		testResolveArgument(parameter(WebSession.class), this.exchange.getSession().block());
 		testResolveArgument(parameter(HttpMethod.class), HttpMethod.GET);
 	}
 

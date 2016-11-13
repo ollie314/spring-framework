@@ -29,10 +29,12 @@ import java.util.concurrent.CompletableFuture;
 import javax.xml.bind.annotation.XmlRootElement;
 
 import io.reactivex.Flowable;
+import io.reactivex.Maybe;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import rx.Observable;
 import rx.Single;
 
@@ -45,29 +47,25 @@ import org.springframework.http.codec.HttpMessageReader;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.validation.Errors;
 import org.springframework.validation.Validator;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.support.ConfigurableWebBindingInitializer;
 import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.reactive.result.ResolvableMethod;
-import org.springframework.web.reactive.result.method.BindingContext;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 import org.springframework.web.server.UnsupportedMediaTypeStatusException;
 import org.springframework.web.server.adapter.DefaultServerWebExchange;
 import org.springframework.web.server.session.MockWebSessionManager;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.springframework.core.ResolvableType.forClass;
-import static org.springframework.core.ResolvableType.forClassWithGenerics;
+import static org.junit.Assert.*;
+import static org.springframework.core.ResolvableType.*;
 
 /**
  * Unit tests for {@link AbstractMessageReaderArgumentResolver}.
+ *
  * @author Rossen Stoyanchev
  */
 public class MessageReaderArgumentResolverTests {
@@ -102,8 +100,7 @@ public class MessageReaderArgumentResolverTests {
 		MethodParameter param = this.testMethod.resolveParam(type);
 		Mono<Object> result = this.resolver.readBody(param, true, this.bindingContext, this.exchange);
 
-		TestSubscriber.subscribe(result)
-				.assertError(UnsupportedMediaTypeStatusException.class);
+		StepVerifier.create(result).expectError(UnsupportedMediaTypeStatusException.class).verify();
 	}
 
 	// More extensive "empty body" tests in RequestBody- and HttpEntityArgumentResolverTests
@@ -116,7 +113,7 @@ public class MessageReaderArgumentResolverTests {
 		Mono<TestBean> result = (Mono<TestBean>) this.resolver.readBody(
 				param, true, this.bindingContext, this.exchange).block();
 
-		TestSubscriber.subscribe(result).assertError(ServerWebInputException.class);
+		StepVerifier.create(result).expectError(ServerWebInputException.class).verify();
 	}
 
 	@Test
@@ -158,6 +155,16 @@ public class MessageReaderArgumentResolverTests {
 		io.reactivex.Single<TestBean> single = resolveValue(param, body);
 
 		assertEquals(new TestBean("f1", "b1"), single.blockingGet());
+	}
+
+	@Test
+	public void rxJava2MaybeTestBean() throws Exception {
+		String body = "{\"bar\":\"b1\",\"foo\":\"f1\"}";
+		ResolvableType type = forClassWithGenerics(Maybe.class, TestBean.class);
+		MethodParameter param = this.testMethod.resolveParam(type);
+		Maybe<TestBean> maybe = resolveValue(param, body);
+
+		assertEquals(new TestBean("f1", "b1"), maybe.blockingGet());
 	}
 
 	@Test
@@ -256,35 +263,36 @@ public class MessageReaderArgumentResolverTests {
 		assertArrayEquals(new TestBean[] {new TestBean("f1", "b1"), new TestBean("f2", "b2")}, value);
 	}
 
-	@Test @SuppressWarnings("unchecked")
+	@Test
+	@SuppressWarnings("unchecked")
 	public void validateMonoTestBean() throws Exception {
 		String body = "{\"bar\":\"b1\"}";
 		ResolvableType type = forClassWithGenerics(Mono.class, TestBean.class);
 		MethodParameter param = this.testMethod.resolveParam(type);
 		Mono<TestBean> mono = resolveValue(param, body);
 
-		TestSubscriber.subscribe(mono)
-				.assertNoValues()
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create(mono).expectNextCount(0).expectError(ServerWebInputException.class).verify();
 	}
 
-	@Test @SuppressWarnings("unchecked")
+	@Test
+	@SuppressWarnings("unchecked")
 	public void validateFluxTestBean() throws Exception {
 		String body = "[{\"bar\":\"b1\",\"foo\":\"f1\"},{\"bar\":\"b2\"}]";
 		ResolvableType type = forClassWithGenerics(Flux.class, TestBean.class);
 		MethodParameter param = this.testMethod.resolveParam(type);
 		Flux<TestBean> flux = resolveValue(param, body);
 
-		TestSubscriber.subscribe(flux)
-				.assertValues(new TestBean("f1", "b1"))
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create(flux)
+				.expectNext(new TestBean("f1", "b1"))
+				.expectError(ServerWebInputException.class)
+				.verify();
 	}
 
-	@Test // SPR-9964
+	@Test  // SPR-9964
 	public void parameterizedMethodArgument() throws Exception {
 		Method method = AbstractParameterizedController.class.getMethod("handleDto", Identifiable.class);
- 		HandlerMethod handlerMethod = new HandlerMethod(new ConcreteParameterizedController(), method);
- 		MethodParameter methodParam = handlerMethod.getMethodParameters()[0];
+		HandlerMethod handlerMethod = new HandlerMethod(new ConcreteParameterizedController(), method);
+		MethodParameter methodParam = handlerMethod.getMethodParameters()[0];
 		SimpleBean simpleBean = resolveValue(methodParam, "{\"name\" : \"Jad\"}");
 
 		assertEquals("Jad", simpleBean.getName());
@@ -318,6 +326,7 @@ public class MessageReaderArgumentResolverTests {
 			@Validated Flux<TestBean> fluxTestBean,
 			Single<TestBean> singleTestBean,
 			io.reactivex.Single<TestBean> rxJava2SingleTestBean,
+			Maybe<TestBean> rxJava2MaybeTestBean,
 			Observable<TestBean> observableTestBean,
 			io.reactivex.Observable<TestBean> rxJava2ObservableTestBean,
 			Flowable<TestBean> flowableTestBean,
@@ -327,7 +336,8 @@ public class MessageReaderArgumentResolverTests {
 			List<TestBean> list,
 			Mono<List<TestBean>> monoList,
 			Set<TestBean> set,
-			TestBean[] array) {}
+			TestBean[] array) {
+	}
 
 
 	@XmlRootElement
@@ -385,6 +395,7 @@ public class MessageReaderArgumentResolverTests {
 		}
 	}
 
+
 	private static class TestBeanValidator implements Validator {
 
 		@Override
@@ -401,14 +412,17 @@ public class MessageReaderArgumentResolverTests {
 		}
 	}
 
+
 	private static abstract class AbstractParameterizedController<DTO extends Identifiable> {
 
 		@SuppressWarnings("unused")
 		public void handleDto(DTO dto) {}
 	}
 
+
 	private static class ConcreteParameterizedController extends AbstractParameterizedController<SimpleBean> {
 	}
+
 
 	private interface Identifiable extends Serializable {
 
@@ -417,7 +431,8 @@ public class MessageReaderArgumentResolverTests {
 		void setId(Long id);
 	}
 
-	@SuppressWarnings({ "serial" })
+
+	@SuppressWarnings({"serial"})
 	private static class SimpleBean implements Identifiable {
 
 		private Long id;

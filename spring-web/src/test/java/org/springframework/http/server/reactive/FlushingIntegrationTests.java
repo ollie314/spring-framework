@@ -23,11 +23,11 @@ import org.junit.Test;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.http.codec.BodyExtractors;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.web.client.reactive.ClientRequest;
 import org.springframework.web.client.reactive.WebClient;
 
@@ -56,10 +56,10 @@ public class FlushingIntegrationTests extends AbstractHttpHandlerIntegrationTest
 				.takeUntil(s -> s.endsWith("data1"))
 				.reduce((s1, s2) -> s1 + s2);
 
-		TestSubscriber
-				.subscribe(result)
-				.await(Duration.ofSeconds(5))
-				.assertValues("data0data1");
+		StepVerifier.create(result)
+				.expectNext("data0data1")
+				.expectComplete()
+				.verify(Duration.ofSeconds(5L));
 	}
 
 	@Override

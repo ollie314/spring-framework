@@ -145,8 +145,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	private final Set<Class<?>> ignoredDependencyInterfaces = new HashSet<>();
 
 	/** Cache of unfinished FactoryBean instances: FactoryBean name --> BeanWrapper */
-	private final Map<String, BeanWrapper> factoryBeanInstanceCache =
-			new ConcurrentHashMap<>(16);
+	private final Map<String, BeanWrapper> factoryBeanInstanceCache = new ConcurrentHashMap<>(16);
 
 	/** Cache of filtered PropertyDescriptors: bean Class -> PropertyDescriptor array */
 	private final ConcurrentMap<Class<?>, PropertyDescriptor[]> filteredPropertyDescriptorsCache =
@@ -479,11 +478,25 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					"BeanPostProcessor before instantiation of bean failed", ex);
 		}
 
-		Object beanInstance = doCreateBean(beanName, mbdToUse, args);
-		if (logger.isDebugEnabled()) {
-			logger.debug("Finished creating instance of bean '" + beanName + "'");
+		try {
+			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
+			if (logger.isDebugEnabled()) {
+				logger.debug("Finished creating instance of bean '" + beanName + "'");
+			}
+			return beanInstance;
 		}
-		return beanInstance;
+		catch (BeanCreationException ex) {
+			// A previously detected exception with proper bean creation context already...
+			throw ex;
+		}
+		catch (ImplicitlyAppearedSingletonException ex) {
+			// An IllegalStateException to be communicated up to DefaultSingletonBeanRegistry...
+			throw ex;
+		}
+		catch (Throwable ex) {
+			throw new BeanCreationException(
+					mbdToUse.getResourceDescription(), beanName, "Unexpected exception during bean creation", ex);
+		}
 	}
 
 	/**
@@ -500,7 +513,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @see #instantiateUsingFactoryMethod
 	 * @see #autowireConstructor
 	 */
-	protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, final Object[] args) {
+	protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, final Object[] args)
+			throws BeanCreationException {
+
 		// Instantiate the bean.
 		BeanWrapper instanceWrapper = null;
 		if (mbd.isSingleton()) {
@@ -515,7 +530,13 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Allow post-processors to modify the merged bean definition.
 		synchronized (mbd.postProcessingLock) {
 			if (!mbd.postProcessed) {
-				applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
+				try {
+					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
+				}
+				catch (Throwable ex) {
+					throw new BeanCreationException(mbd.getResourceDescription(), beanName,
+							"Post-processing of merged bean definition failed", ex);
+				}
 				mbd.postProcessed = true;
 			}
 		}
@@ -550,7 +571,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				throw (BeanCreationException) ex;
 			}
 			else {
-				throw new BeanCreationException(mbd.getResourceDescription(), beanName, "Initialization of bean failed", ex);
+				throw new BeanCreationException(
+						mbd.getResourceDescription(), beanName, "Initialization of bean failed", ex);
 			}
 		}
 
@@ -586,7 +608,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			registerDisposableBeanIfNecessary(beanName, bean, mbd);
 		}
 		catch (BeanDefinitionValidationException ex) {
-			throw new BeanCreationException(mbd.getResourceDescription(), beanName, "Invalid destruction signature", ex);
+			throw new BeanCreationException(
+					mbd.getResourceDescription(), beanName, "Invalid destruction signature", ex);
 		}
 
 		return exposedObject;
@@ -697,8 +720,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 							paramNames = pnd.getParameterNames(factoryMethod);
 						}
 						ConstructorArgumentValues cav = mbd.getConstructorArgumentValues();
-						Set<ConstructorArgumentValues.ValueHolder> usedValueHolders =
-								new HashSet<>(paramTypes.length);
+						Set<ConstructorArgumentValues.ValueHolder> usedValueHolders = new HashSet<>(paramTypes.length);
 						Object[] args = new Object[paramTypes.length];
 						for (int i = 0; i < args.length; i++) {
 							ConstructorArgumentValues.ValueHolder valueHolder = cav.getArgumentValue(
@@ -773,10 +795,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					ReflectionUtils.doWithMethods(fbClass,
 							new ReflectionUtils.MethodCallback() {
 								@Override
-								public void doWith(Method method) throws IllegalArgumentException, IllegalAccessException {
+								public void doWith(Method method) {
 									if (method.getName().equals(factoryMethodName) &&
 											FactoryBean.class.isAssignableFrom(method.getReturnType())) {
-										objectType.value = GenericTypeResolver.resolveReturnTypeArgument(method, FactoryBean.class);
+										objectType.value = GenericTypeResolver.resolveReturnTypeArgument(
+												method, FactoryBean.class);
 									}
 								}
 							});
@@ -927,23 +950,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @param mbd the merged bean definition for the bean
 	 * @param beanType the actual type of the managed bean instance
 	 * @param beanName the name of the bean
-	 * @throws BeansException if any post-processing failed
 	 * @see MergedBeanDefinitionPostProcessor#postProcessMergedBeanDefinition
 	 */
-	protected void applyMergedBeanDefinitionPostProcessors(RootBeanDefinition mbd, Class<?> beanType, String beanName)
-			throws BeansException {
-
-		try {
-			for (BeanPostProcessor bp : getBeanPostProcessors()) {
-				if (bp instanceof MergedBeanDefinitionPostProcessor) {
-					MergedBeanDefinitionPostProcessor bdp = (MergedBeanDefinitionPostProcessor) bp;
-					bdp.postProcessMergedBeanDefinition(mbd, beanType, beanName);
-				}
+	protected void applyMergedBeanDefinitionPostProcessors(RootBeanDefinition mbd, Class<?> beanType, String beanName) {
+		for (BeanPostProcessor bp : getBeanPostProcessors()) {
+			if (bp instanceof MergedBeanDefinitionPostProcessor) {
+				MergedBeanDefinitionPostProcessor bdp = (MergedBeanDefinitionPostProcessor) bp;
+				bdp.postProcessMergedBeanDefinition(mbd, beanType, beanName);
 			}
-		}
-		catch (Exception ex) {
-			throw new BeanCreationException(mbd.getResourceDescription(), beanName,
-					"Post-processing failed of bean type [" + beanType + "] failed", ex);
 		}
 	}
 
@@ -981,12 +995,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @param beanClass the class of the bean to be instantiated
 	 * @param beanName the name of the bean
 	 * @return the bean object to use instead of a default instance of the target bean, or {@code null}
-	 * @throws BeansException if any post-processing failed
 	 * @see InstantiationAwareBeanPostProcessor#postProcessBeforeInstantiation
 	 */
-	protected Object applyBeanPostProcessorsBeforeInstantiation(Class<?> beanClass, String beanName)
-			throws BeansException {
-
+	protected Object applyBeanPostProcessorsBeforeInstantiation(Class<?> beanClass, String beanName) {
 		for (BeanPostProcessor bp : getBeanPostProcessors()) {
 			if (bp instanceof InstantiationAwareBeanPostProcessor) {
 				InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
@@ -1107,7 +1118,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			return bw;
 		}
 		catch (Throwable ex) {
-			throw new BeanCreationException(mbd.getResourceDescription(), beanName, "Instantiation of bean failed", ex);
+			throw new BeanCreationException(
+					mbd.getResourceDescription(), beanName, "Instantiation of bean failed", ex);
 		}
 	}
 
@@ -1659,7 +1671,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * methods with arguments.
 	 * @see #invokeInitMethods
 	 */
-	protected void invokeCustomInitMethod(String beanName, final Object bean, RootBeanDefinition mbd) throws Throwable {
+	protected void invokeCustomInitMethod(String beanName, final Object bean, RootBeanDefinition mbd)
+			throws Throwable {
+
 		String initMethodName = mbd.getInitMethodName();
 		final Method initMethod = (mbd.isNonPublicAccessAllowed() ?
 				BeanUtils.findMethod(bean.getClass(), initMethodName) :

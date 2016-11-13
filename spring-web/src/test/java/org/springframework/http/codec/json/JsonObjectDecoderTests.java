@@ -21,10 +21,10 @@ import java.util.Collections;
 
 import org.junit.Test;
 import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 import org.springframework.core.io.buffer.AbstractDataBufferAllocatingTestCase;
 import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.tests.TestSubscriber;
 
 /**
  * @author Sebastien Deleuze
@@ -32,15 +32,16 @@ import org.springframework.tests.TestSubscriber;
 public class JsonObjectDecoderTests extends AbstractDataBufferAllocatingTestCase {
 
 	@Test
-	public void decodeSingleChunkToJsonObject()  {
+	public void decodeSingleChunkToJsonObject() throws Exception {
 		JsonObjectDecoder decoder = new JsonObjectDecoder();
 		Flux<DataBuffer> source =
 				Flux.just(stringBuffer("{\"foo\": \"foofoo\", \"bar\": \"barbar\"}"));
 		Flux<String> output =
 				decoder.decode(source, null, null, Collections.emptyMap()).map(JsonObjectDecoderTests::toString);
-		TestSubscriber
-				.subscribe(output)
-				.assertValues("{\"foo\": \"foofoo\", \"bar\": \"barbar\"}");
+		StepVerifier.create(output)
+				.expectNext("{\"foo\": \"foofoo\", \"bar\": \"barbar\"}")
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
@@ -50,36 +51,61 @@ public class JsonObjectDecoderTests extends AbstractDataBufferAllocatingTestCase
 				stringBuffer(", \"bar\": \"barbar\"}"));
 		Flux<String> output =
 				decoder.decode(source, null, null, Collections.emptyMap()).map(JsonObjectDecoderTests::toString);
-		TestSubscriber
-				.subscribe(output)
-				.assertValues("{\"foo\": \"foofoo\", \"bar\": \"barbar\"}");
+		StepVerifier.create(output)
+				.expectNext("{\"foo\": \"foofoo\", \"bar\": \"barbar\"}")
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
 	public void decodeSingleChunkToArray() throws InterruptedException {
 		JsonObjectDecoder decoder = new JsonObjectDecoder();
+
 		Flux<DataBuffer> source = Flux.just(stringBuffer(
 				"[{\"foo\": \"foofoo\", \"bar\": \"barbar\"},{\"foo\": \"foofoofoo\", \"bar\": \"barbarbar\"}]"));
 		Flux<String> output =
 				decoder.decode(source, null, null, Collections.emptyMap()).map(JsonObjectDecoderTests::toString);
-		TestSubscriber
-				.subscribe(output)
-				.assertValues("{\"foo\": \"foofoo\", \"bar\": \"barbar\"}",
-							  "{\"foo\": \"foofoofoo\", \"bar\": \"barbarbar\"}");
+		StepVerifier.create(output)
+				.expectNext("{\"foo\": \"foofoo\", \"bar\": \"barbar\"}")
+				.expectNext("{\"foo\": \"foofoofoo\", \"bar\": \"barbarbar\"}")
+				.expectComplete()
+				.verify();
+
+		source = Flux.just(stringBuffer("[{\"foo\": \"bar\"},{\"foo\": \"baz\"}]"));
+		output = decoder.decode(source, null, null, Collections.emptyMap()).map(JsonObjectDecoderTests::toString);
+		StepVerifier.create(output)
+				.expectNext("{\"foo\": \"bar\"}")
+				.expectNext("{\"foo\": \"baz\"}")
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
 	public void decodeMultipleChunksToArray() throws InterruptedException {
 		JsonObjectDecoder decoder = new JsonObjectDecoder();
+
 		Flux<DataBuffer> source =
 				Flux.just(stringBuffer("[{\"foo\": \"foofoo\", \"bar\""), stringBuffer(
 						": \"barbar\"},{\"foo\": \"foofoofoo\", \"bar\": \"barbarbar\"}]"));
 		Flux<String> output =
 				decoder.decode(source, null, null, Collections.emptyMap()).map(JsonObjectDecoderTests::toString);
-		TestSubscriber
-				.subscribe(output)
-				.assertValues("{\"foo\": \"foofoo\", \"bar\": \"barbar\"}",
-							  "{\"foo\": \"foofoofoo\", \"bar\": \"barbarbar\"}");
+		StepVerifier.create(output)
+				.expectNext("{\"foo\": \"foofoo\", \"bar\": \"barbar\"}")
+				.expectNext("{\"foo\": \"foofoofoo\", \"bar\": \"barbarbar\"}")
+				.expectComplete()
+				.verify();
+
+		source = Flux.just(
+				stringBuffer("[{\"foo\": \""),
+				stringBuffer("bar\"},{\"fo"),
+				stringBuffer("o\": \"baz\"}"),
+				stringBuffer("]"));
+		output = decoder.decode(source, null, null, Collections.emptyMap()).map(JsonObjectDecoderTests::toString);
+		StepVerifier.create(output)
+				.expectNext("{\"foo\": \"bar\"}")
+				.expectNext("{\"foo\": \"baz\"}")
+				.expectComplete()
+				.verify();
 	}
 
 

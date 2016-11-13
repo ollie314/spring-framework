@@ -61,6 +61,7 @@ import org.springframework.validation.Validator;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.support.ConfigurableWebBindingInitializer;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.reactive.DispatcherHandler;
 import org.springframework.web.reactive.HandlerMapping;
 import org.springframework.web.reactive.accept.CompositeContentTypeResolver;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolverBuilder;
@@ -74,6 +75,8 @@ import org.springframework.web.reactive.result.method.annotation.ResponseEntityR
 import org.springframework.web.reactive.result.view.ViewResolutionResultHandler;
 import org.springframework.web.reactive.result.view.ViewResolver;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebExceptionHandler;
+import org.springframework.web.server.handler.ResponseStatusExceptionHandler;
 
 /**
  * The main class for Spring Web Reactive configuration.
@@ -117,6 +120,16 @@ public class WebReactiveConfigurationSupport implements ApplicationContextAware 
 
 
 	@Bean
+	public DispatcherHandler webHandler() {
+		return new DispatcherHandler();
+	}
+
+	@Bean
+	public WebExceptionHandler responseStatusExceptionHandler() {
+		return new ResponseStatusExceptionHandler();
+	}
+
+	@Bean
 	public RequestMappingHandlerMapping requestMappingHandlerMapping() {
 		RequestMappingHandlerMapping mapping = createRequestMappingHandlerMapping();
 		mapping.setOrder(0);
@@ -154,7 +167,7 @@ public class WebReactiveConfigurationSupport implements ApplicationContextAware 
 	public CompositeContentTypeResolver webReactiveContentTypeResolver() {
 		RequestedContentTypeResolverBuilder builder = new RequestedContentTypeResolverBuilder();
 		builder.mediaTypes(getDefaultMediaTypeMappings());
-		configureRequestedContentTypeResolver(builder);
+		configureContentTypeResolver(builder);
 		return builder.build();
 	}
 
@@ -173,7 +186,7 @@ public class WebReactiveConfigurationSupport implements ApplicationContextAware 
 	/**
 	 * Override to configure how the requested content type is resolved.
 	 */
-	protected void configureRequestedContentTypeResolver(RequestedContentTypeResolverBuilder builder) {
+	protected void configureContentTypeResolver(RequestedContentTypeResolverBuilder builder) {
 	}
 
 	/**
@@ -306,7 +319,9 @@ public class WebReactiveConfigurationSupport implements ApplicationContextAware 
 
 	/**
 	 * Adds default converters that sub-classes can call from
-	 * {@link #configureMessageReaders(List)}.
+	 * {@link #configureMessageReaders(List)} for {@code byte[]},
+	 * {@code ByteBuffer}, {@code String}, {@code Resource}, JAXB2, and Jackson
+	 * (if present on the classpath).
 	 */
 	protected final void addDefaultHttpMessageReaders(List<HttpMessageReader<?>> readers) {
 		readers.add(new DecoderHttpMessageReader<>(new ByteArrayDecoder()));

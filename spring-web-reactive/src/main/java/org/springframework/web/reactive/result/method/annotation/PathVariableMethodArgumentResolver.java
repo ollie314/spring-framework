@@ -19,12 +19,10 @@ package org.springframework.web.reactive.result.method.annotation;
 import java.util.Map;
 import java.util.Optional;
 
-import reactor.core.publisher.Mono;
-
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.ui.ModelMap;
+import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ValueConstants;
@@ -51,7 +49,7 @@ import org.springframework.web.server.ServerWebExchange;
  * @since 5.0
  * @see PathVariableMapMethodArgumentResolver
  */
-public class PathVariableMethodArgumentResolver extends AbstractNamedValueMethodArgumentResolver {
+public class PathVariableMethodArgumentResolver extends AbstractNamedValueSyncArgumentResolver {
 
 
 	public PathVariableMethodArgumentResolver(ConfigurableBeanFactory beanFactory) {
@@ -79,14 +77,12 @@ public class PathVariableMethodArgumentResolver extends AbstractNamedValueMethod
 
 	@Override
 	@SuppressWarnings("unchecked")
-	protected Mono<Object> resolveName(String name, MethodParameter parameter, ServerWebExchange exchange) {
+	protected Optional<Object> resolveNamedValue(String name, MethodParameter parameter,
+			ServerWebExchange exchange) {
+
 		String attributeName = HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE;
-		Optional<Object> optional = exchange.getAttribute(attributeName);
-		Object value = null;
-		if (optional.isPresent()) {
-			value = ((Map<String, String>) optional.get()).get(name);
-		}
-		return Mono.justOrEmpty(value);
+		return exchange.getAttribute(attributeName)
+				.map(value -> ((Map<String, String>) value).get(name));
 	}
 
 	@Override
@@ -97,7 +93,7 @@ public class PathVariableMethodArgumentResolver extends AbstractNamedValueMethod
 	@Override
 	@SuppressWarnings("unchecked")
 	protected void handleResolvedValue(Object arg, String name, MethodParameter parameter,
-			ModelMap model, ServerWebExchange exchange) {
+			Model model, ServerWebExchange exchange) {
 
 		// TODO: View.PATH_VARIABLES ?
 	}

@@ -26,6 +26,7 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.MethodParameter;
@@ -35,21 +36,17 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.support.ConfigurableWebBindingInitializer;
-import org.springframework.web.reactive.result.method.BindingContext;
+import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 import org.springframework.web.server.adapter.DefaultServerWebExchange;
 import org.springframework.web.server.session.MockWebSessionManager;
 import org.springframework.web.server.session.WebSessionManager;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * Unit tests for {@link RequestHeaderMethodArgumentResolver}.
@@ -203,9 +200,10 @@ public class RequestHeaderMethodArgumentResolverTests {
 		Mono<Object> mono = resolver.resolveArgument(
 				this.paramNamedValueStringArray, this.bindingContext, this.exchange);
 
-		TestSubscriber
-				.subscribe(mono)
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create(mono)
+				.expectNextCount(0)
+				.expectError(ServerWebInputException.class)
+				.verify();
 	}
 
 	@Test

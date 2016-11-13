@@ -22,11 +22,15 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import org.springframework.core.MethodParameter;
 import org.springframework.core.Ordered;
 import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.http.MediaType;
 import org.springframework.util.Assert;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.reactive.HandlerMapping;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolver;
 import org.springframework.web.server.ServerWebExchange;
@@ -38,7 +42,7 @@ import org.springframework.web.server.ServerWebExchange;
  * @author Rossen Stoyanchev
  * @since 5.0
  */
-public abstract class ContentNegotiatingResultHandlerSupport implements Ordered {
+public abstract class AbstractHandlerResultHandler implements Ordered {
 
 	private static final MediaType MEDIA_TYPE_APPLICATION_ALL = new MediaType("application");
 
@@ -50,11 +54,11 @@ public abstract class ContentNegotiatingResultHandlerSupport implements Ordered 
 	private int order = LOWEST_PRECEDENCE;
 
 
-	protected ContentNegotiatingResultHandlerSupport(RequestedContentTypeResolver contentTypeResolver) {
+	protected AbstractHandlerResultHandler(RequestedContentTypeResolver contentTypeResolver) {
 		this(contentTypeResolver, new ReactiveAdapterRegistry());
 	}
 
-	protected ContentNegotiatingResultHandlerSupport(RequestedContentTypeResolver contentTypeResolver,
+	protected AbstractHandlerResultHandler(RequestedContentTypeResolver contentTypeResolver,
 			ReactiveAdapterRegistry adapterRegistry) {
 
 		Assert.notNull(contentTypeResolver, "'contentTypeResolver' is required.");
@@ -98,13 +102,14 @@ public abstract class ContentNegotiatingResultHandlerSupport implements Ordered 
 	 * Select the best media type for the current request through a content
 	 * negotiation algorithm.
 	 * @param exchange the current request
-	 * @param producibleTypes the media types that can be produced for the current request
+	 * @param producibleTypesSupplier the media types that can be produced for the current request
 	 * @return the selected media type or {@code null}
 	 */
-	protected MediaType selectMediaType(ServerWebExchange exchange, List<MediaType> producibleTypes) {
+	protected MediaType selectMediaType(ServerWebExchange exchange,
+			Supplier<List<MediaType>> producibleTypesSupplier) {
 
 		List<MediaType> acceptableTypes = getAcceptableTypes(exchange);
-		producibleTypes = getProducibleTypes(exchange, producibleTypes);
+		List<MediaType> producibleTypes = getProducibleTypes(exchange, producibleTypesSupplier);
 
 		Set<MediaType> compatibleMediaTypes = new LinkedHashSet<>();
 		for (MediaType acceptable : acceptableTypes) {
@@ -136,19 +141,34 @@ public abstract class ContentNegotiatingResultHandlerSupport implements Ordered 
 	}
 
 	@SuppressWarnings("unchecked")
-	private List<MediaType> getProducibleTypes(ServerWebExchange exchange, List<MediaType> mediaTypes) {
+	private List<MediaType> getProducibleTypes(ServerWebExchange exchange,
+			Supplier<List<MediaType>> producibleTypesSupplier) {
+
 		Optional<Object> optional = exchange.getAttribute(HandlerMapping.PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE);
 		if (optional.isPresent()) {
 			Set<MediaType> set = (Set<MediaType>) optional.get();
 			return new ArrayList<>(set);
 		}
-		return mediaTypes;
+		return producibleTypesSupplier.get();
 	}
 
 	private MediaType selectMoreSpecificMediaType(MediaType acceptable, MediaType producible) {
 		producible = producible.copyQualityValue(acceptable);
 		Comparator<MediaType> comparator = MediaType.SPECIFICITY_COMPARATOR;
 		return (comparator.compare(acceptable, producible) <= 0 ? acceptable : producible);
+	}
+
+	/**
+	 * Optionally set the response status using the information provided by {@code @ResponseStatus}.
+	 * @param methodParameter the controller method return parameter
+	 * @param exchange the server exchange being handled
+	 */
+	protected void updateResponseStatus(MethodParameter methodParameter, ServerWebExchange exchange) {
+		ResponseStatus annotation = methodParameter.getMethodAnnotation(ResponseStatus.class);
+		if (annotation != null) {
+			annotation = AnnotationUtils.synthesizeAnnotation(annotation, methodParameter.getMethod());
+			exchange.getResponse().setStatusCode(annotation.code());
+		}
 	}
 
 }

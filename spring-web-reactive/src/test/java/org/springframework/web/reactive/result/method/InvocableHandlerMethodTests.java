@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.web.reactive.result.method;
 
 import java.util.Collections;
@@ -21,11 +22,12 @@ import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import org.springframework.http.HttpMethod;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.tests.TestSubscriber;
+import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.reactive.HandlerResult;
 import org.springframework.web.reactive.result.ResolvableMethod;
 import org.springframework.web.server.ServerWebExchange;
@@ -33,11 +35,10 @@ import org.springframework.web.server.UnsupportedMediaTypeStatusException;
 import org.springframework.web.server.adapter.DefaultServerWebExchange;
 import org.springframework.web.server.session.MockWebSessionManager;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link InvocableHandlerMethod}.
@@ -61,7 +62,7 @@ public class InvocableHandlerMethodTests {
 	@Test
 	public void invokeMethodWithNoArguments() throws Exception {
 		InvocableHandlerMethod hm = handlerMethod("noArgs");
-		Mono<HandlerResult> mono = hm.invokeForRequest(this.exchange, new BindingContext());
+		Mono<HandlerResult> mono = hm.invoke(this.exchange, new BindingContext());
 
 		assertHandlerResultValue(mono, "success");
 	}
@@ -70,7 +71,7 @@ public class InvocableHandlerMethodTests {
 	public void invokeMethodWithNoValue() throws Exception {
 		InvocableHandlerMethod hm = handlerMethod("singleArg");
 		addResolver(hm, Mono.empty());
-		Mono<HandlerResult> mono = hm.invokeForRequest(this.exchange, new BindingContext());
+		Mono<HandlerResult> mono = hm.invoke(this.exchange, new BindingContext());
 
 		assertHandlerResultValue(mono, "success:null");
 	}
@@ -79,7 +80,7 @@ public class InvocableHandlerMethodTests {
 	public void invokeMethodWithValue() throws Exception {
 		InvocableHandlerMethod hm = handlerMethod("singleArg");
 		addResolver(hm, Mono.just("value1"));
-		Mono<HandlerResult> mono = hm.invokeForRequest(this.exchange, new BindingContext());
+		Mono<HandlerResult> mono = hm.invoke(this.exchange, new BindingContext());
 
 		assertHandlerResultValue(mono, "success:value1");
 	}
@@ -87,46 +88,62 @@ public class InvocableHandlerMethodTests {
 	@Test
 	public void noMatchingResolver() throws Exception {
 		InvocableHandlerMethod hm = handlerMethod("singleArg");
-		Mono<HandlerResult> mono = hm.invokeForRequest(this.exchange, new BindingContext());
+		Mono<HandlerResult> mono = hm.invoke(this.exchange, new BindingContext());
 
-		TestSubscriber.subscribe(mono)
-				.assertError(IllegalStateException.class)
-				.assertErrorMessage("No resolver for argument [0] of type [java.lang.String] " +
-						"on method [" + hm.getMethod().toGenericString() + "]");
+		StepVerifier.create(mono)
+				.expectNextCount(0)
+				.consumeErrorWith(error -> {
+					assertThat(error, instanceOf(IllegalStateException.class));
+					assertThat(error.getMessage(), is("No resolver for argument [0] of type [java.lang.String] " +
+							"on method [" + hm.getMethod().toGenericString() + "]"));
+				})
+				.verify();
 	}
 
 	@Test
 	public void resolverThrowsException() throws Exception {
 		InvocableHandlerMethod hm = handlerMethod("singleArg");
 		addResolver(hm, Mono.error(new UnsupportedMediaTypeStatusException("boo")));
-		Mono<HandlerResult> mono = hm.invokeForRequest(this.exchange, new BindingContext());
+		Mono<HandlerResult> mono = hm.invoke(this.exchange, new BindingContext());
 
-		TestSubscriber.subscribe(mono)
-				.assertError(UnsupportedMediaTypeStatusException.class)
-				.assertErrorMessage("Request failure [status: 415, reason: \"boo\"]");
+		StepVerifier.create(mono)
+				.expectNextCount(0)
+				.consumeErrorWith(error -> {
+					assertThat(error, instanceOf(UnsupportedMediaTypeStatusException.class));
+					assertThat(error.getMessage(), is("Request failure [status: 415, reason: \"boo\"]"));
+				})
+				.verify();
 	}
 
 	@Test
 	public void illegalArgumentExceptionIsWrappedWithInvocationDetails() throws Exception {
 		InvocableHandlerMethod hm = handlerMethod("singleArg");
 		addResolver(hm, Mono.just(1));
-		Mono<HandlerResult> mono = hm.invokeForRequest(this.exchange, new BindingContext());
+		Mono<HandlerResult> mono = hm.invoke(this.exchange, new BindingContext());
 
-		TestSubscriber.subscribe(mono)
-				.assertError(IllegalStateException.class)
-				.assertErrorMessage("Failed to invoke controller with resolved arguments: " +
-						"[0][type=java.lang.Integer][value=1] " +
-						"on method [" + hm.getMethod().toGenericString() + "]");
+		StepVerifier.create(mono)
+				.expectNextCount(0)
+				.consumeErrorWith(error -> {
+					assertThat(error, instanceOf(IllegalStateException.class));
+					assertThat(error.getMessage(), is("Failed to invoke controller with resolved arguments: " +
+							"[0][type=java.lang.Integer][value=1] " +
+							"on method [" + hm.getMethod().toGenericString() + "]"));
+				})
+				.verify();
 	}
 
 	@Test
 	public void invocationTargetExceptionIsUnwrapped() throws Exception {
 		InvocableHandlerMethod hm = handlerMethod("exceptionMethod");
-		Mono<HandlerResult> mono = hm.invokeForRequest(this.exchange, new BindingContext());
+		Mono<HandlerResult> mono = hm.invoke(this.exchange, new BindingContext());
 
-		TestSubscriber.subscribe(mono)
-				.assertError(IllegalStateException.class)
-				.assertErrorMessage("boo");
+		StepVerifier.create(mono)
+				.expectNextCount(0)
+				.consumeErrorWith(error -> {
+					assertThat(error, instanceOf(IllegalStateException.class));
+					assertThat(error.getMessage(), is("boo"));
+				})
+				.verify();
 	}
 
 
@@ -139,15 +156,18 @@ public class InvocableHandlerMethodTests {
 		HandlerMethodArgumentResolver resolver = mock(HandlerMethodArgumentResolver.class);
 		when(resolver.supportsParameter(any())).thenReturn(true);
 		when(resolver.resolveArgument(any(), any(), any())).thenReturn(resolvedValue);
-		handlerMethod.setHandlerMethodArgumentResolvers(Collections.singletonList(resolver));
+		handlerMethod.setArgumentResolvers(Collections.singletonList(resolver));
 	}
 
 	private void assertHandlerResultValue(Mono<HandlerResult> mono, String expected) {
-		TestSubscriber.subscribe(mono).assertValuesWith(result -> {
-			Optional<?> optional = result.getReturnValue();
-			assertTrue(optional.isPresent());
-			assertEquals(expected, optional.get());
-		});
+		StepVerifier.create(mono)
+				.consumeNextWith(result -> {
+					Optional<?> optional = result.getReturnValue();
+					assertTrue(optional.isPresent());
+					assertEquals(expected, optional.get());
+				})
+				.expectComplete()
+				.verify();
 	}
 
 
