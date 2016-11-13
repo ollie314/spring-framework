@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.web.reactive.result.method.annotation;
 
 import java.lang.reflect.Method;
@@ -21,6 +22,7 @@ import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.DefaultParameterNameDiscoverer;
@@ -32,27 +34,21 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.support.ConfigurableWebBindingInitializer;
-import org.springframework.web.reactive.result.method.BindingContext;
+import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 import org.springframework.web.server.adapter.DefaultServerWebExchange;
 import org.springframework.web.server.session.MockWebSessionManager;
 import org.springframework.web.server.session.WebSessionManager;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-
+import static org.junit.Assert.*;
 
 /**
  * Unit tests for {@link RequestAttributeMethodArgumentResolver}.
+ *
  * @author Rossen Stoyanchev
  */
 public class RequestAttributeMethodArgumentResolverTests {
@@ -89,9 +85,10 @@ public class RequestAttributeMethodArgumentResolverTests {
 	public void resolve() throws Exception {
 		MethodParameter param = initMethodParameter(0);
 		Mono<Object> mono = this.resolver.resolveArgument(param, new BindingContext(), this.exchange);
-		TestSubscriber
-				.subscribe(mono)
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create(mono)
+				.expectNextCount(0)
+				.expectError(ServerWebInputException.class)
+				.verify();
 
 		Foo foo = new Foo();
 		this.exchange.getAttributes().put("foo", foo);
@@ -161,6 +158,7 @@ public class RequestAttributeMethodArgumentResolverTests {
 			@RequestAttribute(name="foo") Optional<Foo> optionalFoo,
 			String notSupported) {
 	}
+
 
 	private static class Foo {
 	}

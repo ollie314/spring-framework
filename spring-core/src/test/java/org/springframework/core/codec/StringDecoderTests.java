@@ -21,11 +21,11 @@ import java.util.Collections;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import org.springframework.core.ResolvableType;
 import org.springframework.core.io.buffer.AbstractDataBufferAllocatingTestCase;
 import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.util.MimeTypeUtils;
 
 import static org.junit.Assert.assertFalse;
@@ -62,10 +62,11 @@ public class StringDecoderTests extends AbstractDataBufferAllocatingTestCase {
 		Flux<String> output = this.decoder.decode(source, ResolvableType.forClass(String.class),
 				null, Collections.emptyMap());
 
-		TestSubscriber.subscribe(output)
-				.assertNoError()
-				.assertComplete()
-				.assertValues("foo", "bar", "baz");
+		StepVerifier.create(output)
+				.expectNext("foo", "bar", "baz")
+				.expectComplete()
+				.verify();
+
 	}
 
 	@Test
@@ -76,9 +77,11 @@ public class StringDecoderTests extends AbstractDataBufferAllocatingTestCase {
 		Flux<String> output = decoder.decode(source, ResolvableType.forClass(String.class),
 				null, Collections.emptyMap());
 
-		TestSubscriber.subscribe(output)
-				.assertNoError()
-				.assertComplete().assertValues("\n", "foo\r", "\n", "bar\r", "\n", "baz");
+		StepVerifier.create(output)
+				.expectNext("\n", "foo\r", "\n", "bar\r", "\n", "baz")
+				.expectComplete()
+				.verify();
+
 	}
 
 	@Test
@@ -87,10 +90,11 @@ public class StringDecoderTests extends AbstractDataBufferAllocatingTestCase {
 		Flux<String> output = this.decoder.decode(source, ResolvableType.forClass(String.class),
 				null, Collections.emptyMap());
 
-		TestSubscriber.subscribe(output)
-				.assertNoError()
-				.assertComplete()
-				.assertNoValues();
+		StepVerifier.create(output)
+				.expectNextCount(0)
+				.expectComplete()
+				.verify();
+
 	}
 
 	@Test
@@ -99,7 +103,10 @@ public class StringDecoderTests extends AbstractDataBufferAllocatingTestCase {
 		Flux<String> output = this.decoder.decode(source,
 				ResolvableType.forClass(String.class), null, Collections.emptyMap());
 
-		TestSubscriber.subscribe(output).assertValues("");
+		StepVerifier.create(output)
+				.expectNext("")
+				.expectComplete().verify();
+
 	}
 
 	@Test
@@ -109,10 +116,10 @@ public class StringDecoderTests extends AbstractDataBufferAllocatingTestCase {
 		Mono<String> output = this.decoder.decodeToMono(source,
 				ResolvableType.forClass(String.class), null, Collections.emptyMap());
 
-		TestSubscriber.subscribe(output)
-				.assertNoError()
-				.assertComplete()
-				.assertValues("foobarbaz");
+		StepVerifier.create(output)
+				.expectNext("foobarbaz")
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
@@ -121,10 +128,10 @@ public class StringDecoderTests extends AbstractDataBufferAllocatingTestCase {
 		Mono<String> output = this.decoder.decodeToMono(source,
 				ResolvableType.forClass(String.class), null, Collections.emptyMap());
 
-		TestSubscriber.subscribe(output)
-				.assertNoError()
-				.assertComplete()
-				.assertNoValues();
+		StepVerifier.create(output)
+				.expectNextCount(0)
+				.expectComplete()
+				.verify();
 	}
 
 }

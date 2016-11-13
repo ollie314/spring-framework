@@ -20,6 +20,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.logging.Log;
@@ -31,20 +32,27 @@ import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.core.MethodIntrospector;
 import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.codec.ByteArrayDecoder;
 import org.springframework.core.codec.ByteBufferDecoder;
 import org.springframework.core.codec.StringDecoder;
 import org.springframework.http.codec.DecoderHttpMessageReader;
 import org.springframework.http.codec.HttpMessageReader;
+import org.springframework.util.ReflectionUtils;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.support.WebBindingInitializer;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
+import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.reactive.HandlerAdapter;
 import org.springframework.web.reactive.HandlerResult;
-import org.springframework.web.reactive.result.method.BindingContext;
 import org.springframework.web.reactive.result.method.HandlerMethodArgumentResolver;
 import org.springframework.web.reactive.result.method.InvocableHandlerMethod;
+import org.springframework.web.reactive.result.method.SyncHandlerMethodArgumentResolver;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
@@ -68,11 +76,21 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 
 	private List<HandlerMethodArgumentResolver> argumentResolvers;
 
+	private List<SyncHandlerMethodArgumentResolver> customInitBinderArgumentResolvers;
+
+	private List<SyncHandlerMethodArgumentResolver> initBinderArgumentResolvers;
+
 	private ConfigurableBeanFactory beanFactory;
+
+
+	private final BindingContextFactory bindingContextFactory = new BindingContextFactory(this);
+
+	private final Map<Class<?>, Set<Method>> initBinderCache = new ConcurrentHashMap<>(64);
+
+	private final Map<Class<?>, Set<Method>> modelAttributeCache = new ConcurrentHashMap<>(64);
 
 	private final Map<Class<?>, ExceptionHandlerMethodResolver> exceptionHandlerCache =
 			new ConcurrentHashMap<>(64);
-
 
 
 	public RequestMappingHandlerAdapter() {
@@ -121,10 +139,10 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 	}
 
 	/**
-	 * Provide custom argument resolvers without overriding the built-in ones.
+	 * Configure custom argument resolvers without overriding the built-in ones.
 	 */
-	public void setCustomArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
-		this.customArgumentResolvers = argumentResolvers;
+	public void setCustomArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+		this.customArgumentResolvers = resolvers;
 	}
 
 	/**
@@ -150,6 +168,39 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 	}
 
 	/**
+	 * Configure custom argument resolvers for {@code @InitBinder} methods.
+	 */
+	public void setCustomInitBinderArgumentResolvers(List<SyncHandlerMethodArgumentResolver> resolvers) {
+		this.customInitBinderArgumentResolvers = resolvers;
+	}
+
+	/**
+	 * Return the custom {@code @InitBinder} argument resolvers.
+	 */
+	public List<SyncHandlerMethodArgumentResolver> getCustomInitBinderArgumentResolvers() {
+		return this.customInitBinderArgumentResolvers;
+	}
+
+	/**
+	 * Configure the supported argument types in {@code @InitBinder} methods.
+	 */
+	public void setInitBinderArgumentResolvers(List<SyncHandlerMethodArgumentResolver> resolvers) {
+		this.initBinderArgumentResolvers = null;
+		if (resolvers != null) {
+			this.initBinderArgumentResolvers = new ArrayList<>();
+			this.initBinderArgumentResolvers.addAll(resolvers);
+		}
+	}
+
+	/**
+	 * Return the configured argument resolvers for {@code @InitBinder} methods.
+	 */
+	public List<SyncHandlerMethodArgumentResolver> getInitBinderArgumentResolvers() {
+		return this.initBinderArgumentResolvers;
+	}
+
+
+	/**
 	 * A {@link ConfigurableBeanFactory} is expected for resolving expressions
 	 * in method argument default values.
 	 */
@@ -168,21 +219,23 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 	@Override
 	public void afterPropertiesSet() throws Exception {
 		if (this.argumentResolvers == null) {
-			this.argumentResolvers = initArgumentResolvers();
+			this.argumentResolvers = getDefaultArgumentResolvers();
+		}
+		if (this.initBinderArgumentResolvers == null) {
+			this.initBinderArgumentResolvers = getDefaultInitBinderArgumentResolvers();
 		}
 	}
 
-	protected List<HandlerMethodArgumentResolver> initArgumentResolvers() {
+	protected List<HandlerMethodArgumentResolver> getDefaultArgumentResolvers() {
 		List<HandlerMethodArgumentResolver> resolvers = new ArrayList<>();
 
-		ReactiveAdapterRegistry adapterRegistry = getReactiveAdapterRegistry();
-
 		// Annotation-based argument resolution
-		resolvers.add(new RequestParamMethodArgumentResolver(getBeanFactory(), false));
+		resolvers.add(new RequestParamMethodArgumentResolver(getBeanFactory()));
 		resolvers.add(new RequestParamMapMethodArgumentResolver());
 		resolvers.add(new PathVariableMethodArgumentResolver(getBeanFactory()));
 		resolvers.add(new PathVariableMapMethodArgumentResolver());
-		resolvers.add(new RequestBodyArgumentResolver(getMessageReaders(), adapterRegistry));
+		resolvers.add(new RequestBodyArgumentResolver(getMessageReaders(), getReactiveAdapterRegistry()));
+		resolvers.add(new ModelAttributeMethodArgumentResolver(getReactiveAdapterRegistry()));
 		resolvers.add(new RequestHeaderMethodArgumentResolver(getBeanFactory()));
 		resolvers.add(new RequestHeaderMapMethodArgumentResolver());
 		resolvers.add(new CookieValueMethodArgumentResolver(getBeanFactory()));
@@ -191,9 +244,12 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 		resolvers.add(new RequestAttributeMethodArgumentResolver(getBeanFactory()));
 
 		// Type-based argument resolution
-		resolvers.add(new HttpEntityArgumentResolver(getMessageReaders(), adapterRegistry));
+		resolvers.add(new HttpEntityArgumentResolver(getMessageReaders(), getReactiveAdapterRegistry()));
 		resolvers.add(new ModelArgumentResolver());
+		resolvers.add(new ErrorsMethodArgumentResolver(getReactiveAdapterRegistry()));
 		resolvers.add(new ServerWebExchangeArgumentResolver());
+		resolvers.add(new PrincipalArgumentResolver());
+		resolvers.add(new WebSessionArgumentResolver());
 
 		// Custom resolvers
 		if (getCustomArgumentResolvers() != null) {
@@ -202,8 +258,38 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 
 		// Catch-all
 		resolvers.add(new RequestParamMethodArgumentResolver(getBeanFactory(), true));
+		resolvers.add(new ModelAttributeMethodArgumentResolver(getReactiveAdapterRegistry(), true));
 		return resolvers;
 	}
+
+	protected List<SyncHandlerMethodArgumentResolver> getDefaultInitBinderArgumentResolvers() {
+		List<SyncHandlerMethodArgumentResolver> resolvers = new ArrayList<>();
+
+		// Annotation-based argument resolution
+		resolvers.add(new RequestParamMethodArgumentResolver(getBeanFactory(), false));
+		resolvers.add(new RequestParamMapMethodArgumentResolver());
+		resolvers.add(new PathVariableMethodArgumentResolver(getBeanFactory()));
+		resolvers.add(new PathVariableMapMethodArgumentResolver());
+		resolvers.add(new RequestHeaderMethodArgumentResolver(getBeanFactory()));
+		resolvers.add(new RequestHeaderMapMethodArgumentResolver());
+		resolvers.add(new CookieValueMethodArgumentResolver(getBeanFactory()));
+		resolvers.add(new ExpressionValueMethodArgumentResolver(getBeanFactory()));
+		resolvers.add(new RequestAttributeMethodArgumentResolver(getBeanFactory()));
+
+		// Type-based argument resolution
+		resolvers.add(new ModelArgumentResolver());
+		resolvers.add(new ServerWebExchangeArgumentResolver());
+
+		// Custom resolvers
+		if (getCustomInitBinderArgumentResolvers() != null) {
+			resolvers.addAll(getCustomInitBinderArgumentResolvers());
+		}
+
+		// Catch-all
+		resolvers.add(new RequestParamMethodArgumentResolver(getBeanFactory(), true));
+		return resolvers;
+	}
+
 
 	@Override
 	public boolean supports(Object handler) {
@@ -212,42 +298,56 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 
 	@Override
 	public Mono<HandlerResult> handle(ServerWebExchange exchange, Object handler) {
+
 		HandlerMethod handlerMethod = (HandlerMethod) handler;
 		InvocableHandlerMethod invocable = new InvocableHandlerMethod(handlerMethod);
-		invocable.setHandlerMethodArgumentResolvers(getArgumentResolvers());
-		BindingContext bindingContext = new BindingContext(getWebBindingInitializer());
-		return invocable.invokeForRequest(exchange, bindingContext)
-				.map(result -> result.setExceptionHandler(
-						ex -> handleException(ex, handlerMethod, bindingContext, exchange)))
-				.otherwise(ex -> handleException(
-						ex, handlerMethod, bindingContext, exchange));
+		invocable.setArgumentResolvers(getArgumentResolvers());
+
+		Mono<BindingContext> bindingContextMono =
+				this.bindingContextFactory.createBindingContext(handlerMethod, exchange);
+
+		return bindingContextMono.then(bindingContext ->
+				invocable.invoke(exchange, bindingContext)
+						.doOnNext(result -> result.setExceptionHandler(
+								ex -> handleException(ex, handlerMethod, bindingContext, exchange)))
+						.otherwise(ex -> handleException(
+								ex, handlerMethod, bindingContext, exchange)));
+	}
+
+	Set<Method> getInitBinderMethods(Class<?> handlerType) {
+		return this.initBinderCache.computeIfAbsent(handlerType, aClass ->
+				MethodIntrospector.selectMethods(handlerType, INIT_BINDER_METHODS));
+	}
+
+	Set<Method> getModelAttributeMethods(Class<?> handlerType) {
+		return this.modelAttributeCache.computeIfAbsent(handlerType, aClass ->
+				MethodIntrospector.selectMethods(handlerType, MODEL_ATTRIBUTE_METHODS));
 	}
 
 	private Mono<HandlerResult> handleException(Throwable ex, HandlerMethod handlerMethod,
 			BindingContext bindingContext, ServerWebExchange exchange) {
 
-		if (ex instanceof Exception) {
-			InvocableHandlerMethod invocable = findExceptionHandler(handlerMethod, (Exception) ex);
-			if (invocable != null) {
-				try {
-					if (logger.isDebugEnabled()) {
-						logger.debug("Invoking @ExceptionHandler method: " + invocable);
-					}
-					invocable.setHandlerMethodArgumentResolvers(getArgumentResolvers());
-					bindingContext.getModel().clear();
-					return invocable.invokeForRequest(exchange, bindingContext, ex);
+		InvocableHandlerMethod invocable = findExceptionHandler(handlerMethod, ex);
+		if (invocable != null) {
+			try {
+				if (logger.isDebugEnabled()) {
+					logger.debug("Invoking @ExceptionHandler method: " + invocable.getMethod());
 				}
-				catch (Exception invocationEx) {
-					if (logger.isErrorEnabled()) {
-						logger.error("Failed to invoke @ExceptionHandler method: " + invocable, invocationEx);
-					}
+				invocable.setArgumentResolvers(getArgumentResolvers());
+				bindingContext.getModel().asMap().clear();
+				return invocable.invoke(exchange, bindingContext, ex);
+			}
+			catch (Throwable invocationEx) {
+				if (logger.isWarnEnabled()) {
+					logger.warn("Failed to invoke @ExceptionHandler method: " + invocable.getMethod(),
+							invocationEx);
 				}
 			}
 		}
 		return Mono.error(ex);
 	}
 
-	protected InvocableHandlerMethod findExceptionHandler(HandlerMethod handlerMethod, Exception exception) {
+	protected InvocableHandlerMethod findExceptionHandler(HandlerMethod handlerMethod, Throwable exception) {
 		if (handlerMethod == null) {
 			return null;
 		}
@@ -257,8 +357,22 @@ public class RequestMappingHandlerAdapter implements HandlerAdapter, BeanFactory
 			resolver = new ExceptionHandlerMethodResolver(handlerType);
 			this.exceptionHandlerCache.put(handlerType, resolver);
 		}
-		Method method = resolver.resolveMethod(exception);
+		Method method = resolver.resolveMethodByExceptionType(exception.getClass());
 		return (method != null ? new InvocableHandlerMethod(handlerMethod.getBean(), method) : null);
 	}
+
+
+	/**
+	 * MethodFilter that matches {@link InitBinder @InitBinder} methods.
+	 */
+	public static final ReflectionUtils.MethodFilter INIT_BINDER_METHODS = method ->
+			AnnotationUtils.findAnnotation(method, InitBinder.class) != null;
+
+	/**
+	 * MethodFilter that matches {@link ModelAttribute @ModelAttribute} methods.
+	 */
+	public static final ReflectionUtils.MethodFilter MODEL_ATTRIBUTE_METHODS = method ->
+			(AnnotationUtils.findAnnotation(method, RequestMapping.class) == null) &&
+					(AnnotationUtils.findAnnotation(method, ModelAttribute.class) != null);
 
 }

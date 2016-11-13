@@ -22,10 +22,12 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 
+import io.reactivex.Maybe;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import rx.Observable;
 import rx.RxReactiveStreams;
 import rx.Single;
@@ -38,22 +40,16 @@ import org.springframework.http.codec.DecoderHttpMessageReader;
 import org.springframework.http.codec.HttpMessageReader;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.reactive.result.ResolvableMethod;
-import org.springframework.web.reactive.result.method.BindingContext;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 import org.springframework.web.server.adapter.DefaultServerWebExchange;
 import org.springframework.web.server.session.MockWebSessionManager;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.springframework.core.ResolvableType.forClass;
-import static org.springframework.core.ResolvableType.forClassWithGenerics;
+import static org.junit.Assert.*;
+import static org.springframework.core.ResolvableType.*;
 
 /**
  * Unit tests for {@link RequestBodyArgumentResolver}. When adding a test also
@@ -121,29 +117,35 @@ public class RequestBodyArgumentResolverTests {
 	}
 
 	@Test
+	@SuppressWarnings("unchecked")
 	public void emptyBodyWithMono() throws Exception {
 		ResolvableType type = forClassWithGenerics(Mono.class, String.class);
 
-		TestSubscriber.subscribe(resolveValueWithEmptyBody(type, true))
-				.assertNoValues()
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create((Mono<Void>) resolveValueWithEmptyBody(type, true))
+				.expectNextCount(0)
+				.expectError(ServerWebInputException.class)
+				.verify();
 
-		TestSubscriber.subscribe(resolveValueWithEmptyBody(type, false))
-				.assertNoValues()
-				.assertComplete();
+		StepVerifier.create((Mono<Void>) resolveValueWithEmptyBody(type, false))
+				.expectNextCount(0)
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
+	@SuppressWarnings("unchecked")
 	public void emptyBodyWithFlux() throws Exception {
 		ResolvableType type = forClassWithGenerics(Flux.class, String.class);
 
-		TestSubscriber.subscribe(resolveValueWithEmptyBody(type, true))
-				.assertNoValues()
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create((Flux<Void>) resolveValueWithEmptyBody(type, true))
+				.expectNextCount(0)
+				.expectError(ServerWebInputException.class)
+				.verify();
 
-		TestSubscriber.subscribe(resolveValueWithEmptyBody(type, false))
-				.assertNoValues()
-				.assertComplete();
+		StepVerifier.create((Flux<Void>) resolveValueWithEmptyBody(type, false))
+				.expectNextCount(0)
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
@@ -151,14 +153,33 @@ public class RequestBodyArgumentResolverTests {
 		ResolvableType type = forClassWithGenerics(Single.class, String.class);
 
 		Single<String> single = resolveValueWithEmptyBody(type, true);
-		TestSubscriber.subscribe(RxReactiveStreams.toPublisher(single))
-				.assertNoValues()
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create(RxReactiveStreams.toPublisher(single))
+				.expectNextCount(0)
+				.expectError(ServerWebInputException.class)
+				.verify();
 
 		single = resolveValueWithEmptyBody(type, false);
-		TestSubscriber.subscribe(RxReactiveStreams.toPublisher(single))
-				.assertNoValues()
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create(RxReactiveStreams.toPublisher(single))
+				.expectNextCount(0)
+				.expectError(ServerWebInputException.class)
+				.verify();
+	}
+
+	@Test
+	public void emptyBodyWithMaybe() throws Exception {
+		ResolvableType type = forClassWithGenerics(Maybe.class, String.class);
+
+		Maybe<String> maybe = resolveValueWithEmptyBody(type, true);
+		StepVerifier.create(maybe.toFlowable())
+				.expectNextCount(0)
+				.expectError(ServerWebInputException.class)
+				.verify();
+
+		maybe = resolveValueWithEmptyBody(type, false);
+		StepVerifier.create(maybe.toFlowable())
+				.expectNextCount(0)
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
@@ -166,14 +187,16 @@ public class RequestBodyArgumentResolverTests {
 		ResolvableType type = forClassWithGenerics(Observable.class, String.class);
 
 		Observable<String> observable = resolveValueWithEmptyBody(type, true);
-		TestSubscriber.subscribe(RxReactiveStreams.toPublisher(observable))
-				.assertNoValues()
-				.assertError(ServerWebInputException.class);
+		StepVerifier.create(RxReactiveStreams.toPublisher(observable))
+				.expectNextCount(0)
+				.expectError(ServerWebInputException.class)
+				.verify();
 
 		observable = resolveValueWithEmptyBody(type, false);
-		TestSubscriber.subscribe(RxReactiveStreams.toPublisher(observable))
-				.assertNoValues()
-				.assertComplete();
+		StepVerifier.create(RxReactiveStreams.toPublisher(observable))
+				.expectNextCount(0)
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
@@ -231,13 +254,13 @@ public class RequestBodyArgumentResolverTests {
 	}
 
 
-	@SuppressWarnings("unused")
 	void handle(
 			@RequestBody String string,
 			@RequestBody Mono<String> mono,
 			@RequestBody Flux<String> flux,
 			@RequestBody Single<String> single,
 			@RequestBody io.reactivex.Single<String> rxJava2Single,
+			@RequestBody Maybe<String> rxJava2Maybe,
 			@RequestBody Observable<String> obs,
 			@RequestBody io.reactivex.Observable<String> rxjava2Obs,
 			@RequestBody CompletableFuture<String> future,
@@ -246,6 +269,7 @@ public class RequestBodyArgumentResolverTests {
 			@RequestBody(required = false) Flux<String> fluxNotRequired,
 			@RequestBody(required = false) Single<String> singleNotRequired,
 			@RequestBody(required = false) io.reactivex.Single<String> rxJava2SingleNotRequired,
+			@RequestBody(required = false) Maybe<String> rxJava2MaybeNotRequired,
 			@RequestBody(required = false) Observable<String> obsNotRequired,
 			@RequestBody(required = false) io.reactivex.Observable<String> rxjava2ObsNotRequired,
 			@RequestBody(required = false) CompletableFuture<String> futureNotRequired,

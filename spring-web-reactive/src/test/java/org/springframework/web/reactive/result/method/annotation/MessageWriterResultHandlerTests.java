@@ -33,6 +33,7 @@ import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import rx.Completable;
 import rx.Observable;
 
@@ -49,10 +50,9 @@ import org.springframework.http.codec.HttpMessageWriter;
 import org.springframework.http.codec.ResourceHttpMessageWriter;
 import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.http.codec.xml.Jaxb2XmlEncoder;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.http.server.reactive.ServerHttpRequest;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolver;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolverBuilder;
@@ -136,7 +136,7 @@ public class MessageWriterResultHandlerTests {
 		HttpMessageWriter<?> writer = new EncoderHttpMessageWriter<>(new ByteBufferEncoder());
 		Mono<Void> mono = createResultHandler(writer).writeBody(body, returnType(type), this.exchange);
 
-		TestSubscriber.subscribe(mono).assertError(IllegalStateException.class);
+		StepVerifier.create(mono).expectError(IllegalStateException.class).verify();
 	}
 
 	@Test  // SPR-12811
@@ -193,9 +193,11 @@ public class MessageWriterResultHandlerTests {
 	}
 
 	private void assertResponseBody(String responseBody) {
-		TestSubscriber.subscribe(this.response.getBody())
-				.assertValuesWith(buf -> assertEquals(responseBody,
-						DataBufferTestUtils.dumpString(buf, StandardCharsets.UTF_8)));
+		StepVerifier.create(this.response.getBody())
+				.consumeNextWith(buf -> assertEquals(responseBody,
+						DataBufferTestUtils.dumpString(buf, StandardCharsets.UTF_8)))
+				.expectComplete()
+				.verify();
 	}
 
 
@@ -208,7 +210,7 @@ public class MessageWriterResultHandlerTests {
 		public ParentClass() {
 		}
 
-		public ParentClass(String parentProperty) {
+		ParentClass(String parentProperty) {
 			this.parentProperty = parentProperty;
 		}
 
@@ -232,7 +234,7 @@ public class MessageWriterResultHandlerTests {
 	@JsonTypeName("bar")
 	private static class Bar extends ParentClass {
 
-		public Bar(String parentProperty) {
+		Bar(String parentProperty) {
 			super(parentProperty);
 		}
 	}
@@ -250,7 +252,7 @@ public class MessageWriterResultHandlerTests {
 
 		private String name;
 
-		public SimpleBean(Long id, String name) {
+		SimpleBean(Long id, String name) {
 			this.id = id;
 			this.name = name;
 		}

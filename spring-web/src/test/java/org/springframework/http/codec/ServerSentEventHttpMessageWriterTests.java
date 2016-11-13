@@ -18,11 +18,13 @@ package org.springframework.http.codec;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.function.Consumer;
 
 import org.junit.Test;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import org.springframework.core.ResolvableType;
 import org.springframework.core.io.buffer.AbstractDataBufferAllocatingTestCase;
@@ -30,7 +32,6 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.tests.TestSubscriber;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -71,17 +72,12 @@ public class ServerSentEventHttpMessageWriterTests extends AbstractDataBufferAll
 		messageWriter.write(source, ResolvableType.forClass(ServerSentEvent.class),
 				new MediaType("text", "event-stream"), outputMessage, Collections.emptyMap());
 
-		Publisher<Publisher<DataBuffer>> result = outputMessage.getBodyWithFlush();
-		TestSubscriber.subscribe(result).
-				assertNoError().
-				assertValuesWith(publisher -> {
-					TestSubscriber.subscribe(publisher).assertNoError().assertValuesWith(
-							stringConsumer("id:c42\n" + "event:foo\n" + "retry:123\n" +
-									":bla\n:bla bla\n:bla bla bla\n" +
-									"data:bar\n"),
-							stringConsumer("\n"));
-
-				});
+		Publisher<Publisher<DataBuffer>> result = Flux.from(outputMessage.getBodyWithFlush());
+		StepVerifier.create(result)
+				.consumeNextWith(sseConsumer("id:c42\n" + "event:foo\n" + "retry:123\n" +
+						":bla\n:bla bla\n:bla bla bla\n" + "data:bar\n"))
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
@@ -92,19 +88,11 @@ public class ServerSentEventHttpMessageWriterTests extends AbstractDataBufferAll
 				new MediaType("text", "event-stream"), outputMessage, Collections.emptyMap());
 
 		Publisher<Publisher<DataBuffer>> result = outputMessage.getBodyWithFlush();
-		TestSubscriber.subscribe(result).
-				assertNoError().
-				assertValuesWith(publisher -> {
-					TestSubscriber.subscribe(publisher).assertNoError()
-							.assertValuesWith(stringConsumer("data:foo\n"),
-									stringConsumer("\n"));
-
-				}, publisher -> {
-					TestSubscriber.subscribe(publisher).assertNoError()
-							.assertValuesWith(stringConsumer("data:bar\n"),
-									stringConsumer("\n"));
-
-				});
+		StepVerifier.create(result)
+				.consumeNextWith(sseConsumer("data:foo\n"))
+				.consumeNextWith(sseConsumer("data:bar\n"))
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
@@ -115,19 +103,11 @@ public class ServerSentEventHttpMessageWriterTests extends AbstractDataBufferAll
 				new MediaType("text", "event-stream"), outputMessage, Collections.emptyMap());
 
 		Publisher<Publisher<DataBuffer>> result = outputMessage.getBodyWithFlush();
-		TestSubscriber.subscribe(result).
-				assertNoError().
-				assertValuesWith(publisher -> {
-					TestSubscriber.subscribe(publisher).assertNoError()
-							.assertValuesWith(stringConsumer("data:foo\ndata:bar\n"),
-									stringConsumer("\n"));
-
-				}, publisher -> {
-					TestSubscriber.subscribe(publisher).assertNoError()
-							.assertValuesWith(stringConsumer("data:foo\ndata:baz\n"),
-									stringConsumer("\n"));
-
-				});
+		StepVerifier.create(result)
+				.consumeNextWith(sseConsumer("data:foo\ndata:bar\n"))
+				.consumeNextWith(sseConsumer("data:foo\ndata:baz\n"))
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
@@ -139,21 +119,21 @@ public class ServerSentEventHttpMessageWriterTests extends AbstractDataBufferAll
 				new MediaType("text", "event-stream"), outputMessage, Collections.emptyMap());
 
 		Publisher<Publisher<DataBuffer>> result = outputMessage.getBodyWithFlush();
-		TestSubscriber.subscribe(result).
-				assertNoError().
-				assertValuesWith(publisher -> {
-					TestSubscriber.subscribe(publisher).assertNoError()
-							.assertValuesWith(stringConsumer("data:"), stringConsumer(
-									"{\"foo\":\"foofoo\",\"bar\":\"barbar\"}"),
-									stringConsumer("\n"), stringConsumer("\n"));
+		StepVerifier.create(result)
+				.consumeNextWith(sseConsumer("data:", "{\"foo\":\"foofoo\",\"bar\":\"barbar\"}", "\n"))
+				.consumeNextWith(sseConsumer("data:", "{\"foo\":\"foofoofoo\",\"bar\":\"barbarbar\"}", "\n"))
+				.expectComplete()
+				.verify();
+	}
 
-				}, publisher -> {
-					TestSubscriber.subscribe(publisher).assertNoError()
-							.assertValuesWith(stringConsumer("data:"), stringConsumer(
-									"{\"foo\":\"foofoofoo\",\"bar\":\"barbarbar\"}"),
-									stringConsumer("\n"), stringConsumer("\n"));
-
-				});
+	private Consumer<Publisher<DataBuffer>> sseConsumer(String... expected) {
+		return publisher -> {
+			StepVerifier.Step builder = StepVerifier.create(publisher);
+			for (String value : expected) {
+				builder = builder.consumeNextWith(stringConsumer(value));
+			}
+			builder.consumeNextWith(stringConsumer("\n")).expectComplete().verify();
+		};
 	}
 
 }

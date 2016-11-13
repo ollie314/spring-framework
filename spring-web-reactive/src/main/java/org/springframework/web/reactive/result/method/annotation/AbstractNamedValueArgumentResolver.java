@@ -27,9 +27,10 @@ import org.springframework.beans.factory.config.BeanExpressionContext;
 import org.springframework.beans.factory.config.BeanExpressionResolver;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.core.MethodParameter;
-import org.springframework.ui.ModelMap;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.ValueConstants;
-import org.springframework.web.reactive.result.method.BindingContext;
+import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.reactive.result.method.HandlerMethodArgumentResolver;
 import org.springframework.web.server.ServerErrorException;
 import org.springframework.web.server.ServerWebExchange;
@@ -39,6 +40,7 @@ import org.springframework.web.server.ServerWebInputException;
  * Abstract base class for resolving method arguments from a named value.
  * Request parameters, request headers, and path variables are examples of named
  * values. Each may have a name, a required flag, and a default value.
+ *
  * <p>Subclasses define how to do the following:
  * <ul>
  * <li>Obtain named value information for a method parameter
@@ -46,6 +48,7 @@ import org.springframework.web.server.ServerWebInputException;
  * <li>Handle missing argument values when argument values are required
  * <li>Optionally handle a resolved value
  * </ul>
+ *
  * <p>A default value string can contain ${...} placeholders and Spring Expression
  * Language #{...} expressions. For this to work a
  * {@link ConfigurableBeanFactory} must be supplied to the class constructor.
@@ -53,7 +56,7 @@ import org.springframework.web.server.ServerWebInputException;
  * @author Rossen Stoyanchev
  * @since 5.0
  */
-public abstract class AbstractNamedValueMethodArgumentResolver implements HandlerMethodArgumentResolver {
+public abstract class AbstractNamedValueArgumentResolver implements HandlerMethodArgumentResolver {
 
 	private final ConfigurableBeanFactory configurableBeanFactory;
 
@@ -67,7 +70,7 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 	 * and #{...} SpEL expressions in default values, or {@code null} if default
 	 * values are not expected to contain expressions
 	 */
-	public AbstractNamedValueMethodArgumentResolver(ConfigurableBeanFactory beanFactory) {
+	public AbstractNamedValueArgumentResolver(ConfigurableBeanFactory beanFactory) {
 		this.configurableBeanFactory = beanFactory;
 		this.expressionContext = (beanFactory != null ? new BeanExpressionContext(beanFactory, null) : null);
 	}
@@ -86,14 +89,14 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 					"Specified name must not resolve to null: [" + namedValueInfo.name + "]"));
 		}
 
-		ModelMap model = bindingContext.getModel();
+		Model model = bindingContext.getModel();
 
 		return resolveName(resolvedName.toString(), nestedParameter, exchange)
 				.map(arg -> {
 					if ("".equals(arg) && namedValueInfo.defaultValue != null) {
 						arg = resolveStringValue(namedValueInfo.defaultValue);
 					}
-					arg = applyConversion(arg, parameter, bindingContext);
+					arg = applyConversion(arg, namedValueInfo, parameter, bindingContext, exchange);
 					handleResolvedValue(arg, namedValueInfo.name, parameter, model, exchange);
 					return arg;
 				})
@@ -168,9 +171,12 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 	protected abstract Mono<Object> resolveName(String name, MethodParameter parameter,
 			ServerWebExchange exchange);
 
-	private Object applyConversion(Object value, MethodParameter parameter, BindingContext bindingContext) {
+	private Object applyConversion(Object value, NamedValueInfo namedValueInfo, MethodParameter parameter,
+			BindingContext bindingContext, ServerWebExchange exchange) {
+
+		WebDataBinder binder = bindingContext.createDataBinder(exchange, namedValueInfo.name);
 		try {
-			value = bindingContext.convertIfNecessary(value, parameter.getParameterType(), parameter);
+			value = binder.convertIfNecessary(value, parameter.getParameterType(), parameter);
 		}
 		catch (ConversionNotSupportedException ex) {
 			throw new ServerErrorException("Conversion not supported.", parameter, ex);
@@ -182,7 +188,7 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 	}
 
 	private Mono<Object> getDefaultValue(NamedValueInfo namedValueInfo, MethodParameter parameter,
-			BindingContext bindingContext, ModelMap model, ServerWebExchange exchange) {
+			BindingContext bindingContext, Model model, ServerWebExchange exchange) {
 
 		Object value = null;
 		try {
@@ -193,7 +199,7 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 				handleMissingValue(namedValueInfo.name, parameter, exchange);
 			}
 			value = handleNullValue(namedValueInfo.name, value, parameter.getNestedParameterType());
-			value = applyConversion(value, parameter, bindingContext);
+			value = applyConversion(value, namedValueInfo, parameter, bindingContext, exchange);
 			handleResolvedValue(value, namedValueInfo.name, parameter, model, exchange);
 			return Mono.justOrEmpty(value);
 		}
@@ -259,7 +265,7 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 	 */
 	@SuppressWarnings("UnusedParameters")
 	protected void handleResolvedValue(Object arg, String name, MethodParameter parameter,
-			ModelMap model, ServerWebExchange exchange) {
+			Model model, ServerWebExchange exchange) {
 	}
 
 

@@ -25,22 +25,29 @@ import reactor.core.publisher.Mono;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.util.Assert;
+import org.springframework.util.MultiValueMap;
 
 /**
- * Wraps another {@link ServerWebExchange} and delegates all methods to it.
- * Sub-classes can override specific methods, e.g. {@link #getPrincipal()} to
- * return the authenticated user for the request.
+ * A convenient base class for classes that need to wrap another
+ * {@link ServerWebExchange}. Pre-implements all methods by delegating to the
+ * wrapped instance.
+ *
+ * <p>Note that if the purpose for wrapping is simply to override specific
+ * properties, e.g. {@link #getPrincipal()}, consider using
+ * {@link ServerWebExchange#mutate()} instead.
  *
  * @author Rossen Stoyanchev
  * @since 5.0
+ *
+ * @see ServerWebExchange#mutate()
  */
 public class ServerWebExchangeDecorator implements ServerWebExchange {
 
 	private final ServerWebExchange delegate;
 
 
-	public ServerWebExchangeDecorator(ServerWebExchange delegate) {
-		Assert.notNull(delegate, "'delegate' is required.");
+	protected ServerWebExchangeDecorator(ServerWebExchange delegate) {
+		Assert.notNull(delegate, "ServerWebExchange 'delegate' is required.");
 		this.delegate = delegate;
 	}
 
@@ -53,52 +60,57 @@ public class ServerWebExchangeDecorator implements ServerWebExchange {
 
 	@Override
 	public ServerHttpRequest getRequest() {
-		return this.getDelegate().getRequest();
+		return getDelegate().getRequest();
 	}
 
 	@Override
 	public ServerHttpResponse getResponse() {
-		return this.getDelegate().getResponse();
+		return getDelegate().getResponse();
 	}
 
 	@Override
 	public Map<String, Object> getAttributes() {
-		return this.getDelegate().getAttributes();
+		return getDelegate().getAttributes();
 	}
 
 	@Override
 	public <T> Optional<T> getAttribute(String name) {
-		return this.getDelegate().getAttribute(name);
+		return getDelegate().getAttribute(name);
 	}
 
 	@Override
 	public Mono<WebSession> getSession() {
-		return this.getDelegate().getSession();
+		return getDelegate().getSession();
 	}
 
 	@Override
-	public <T extends Principal> Optional<T> getPrincipal() {
-		return this.getDelegate().getPrincipal();
+	public <T extends Principal> Mono<T> getPrincipal() {
+		return getDelegate().getPrincipal();
+	}
+
+	@Override
+	public Mono<MultiValueMap<String, String>> getFormData() {
+		return getDelegate().getFormData();
 	}
 
 	@Override
 	public boolean isNotModified() {
-		return this.getDelegate().isNotModified();
+		return getDelegate().isNotModified();
 	}
 
 	@Override
 	public boolean checkNotModified(Instant lastModified) {
-		return this.getDelegate().checkNotModified(lastModified);
+		return getDelegate().checkNotModified(lastModified);
 	}
 
 	@Override
 	public boolean checkNotModified(String etag) {
-		return this.getDelegate().checkNotModified(etag);
+		return getDelegate().checkNotModified(etag);
 	}
 
 	@Override
 	public boolean checkNotModified(String etag, Instant lastModified) {
-		return this.getDelegate().checkNotModified(etag, lastModified);
+		return getDelegate().checkNotModified(etag, lastModified);
 	}
 
 

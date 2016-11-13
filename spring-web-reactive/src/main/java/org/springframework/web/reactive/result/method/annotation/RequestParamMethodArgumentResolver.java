@@ -18,8 +18,7 @@ package org.springframework.web.reactive.result.method.annotation;
 
 import java.util.List;
 import java.util.Map;
-
-import reactor.core.publisher.Mono;
+import java.util.Optional;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -50,12 +49,23 @@ import org.springframework.web.server.ServerWebInputException;
  * @since 5.0
  * @see RequestParamMapMethodArgumentResolver
  */
-public class RequestParamMethodArgumentResolver extends AbstractNamedValueMethodArgumentResolver {
+public class RequestParamMethodArgumentResolver extends AbstractNamedValueSyncArgumentResolver {
 
 	private final boolean useDefaultResolution;
 
 
 	/**
+	 * Class constructor.
+	 * @param beanFactory a bean factory used for resolving  ${...} placeholder
+	 * and #{...} SpEL expressions in default values, or {@code null} if default
+	 * values are not expected to contain expressions
+	 */
+	public RequestParamMethodArgumentResolver(ConfigurableBeanFactory beanFactory) {
+		this(beanFactory, false);
+	}
+
+	/**
+	 * Class constructor with a default resolution mode flag.
 	 * @param beanFactory a bean factory used for resolving  ${...} placeholder
 	 * and #{...} SpEL expressions in default values, or {@code null} if default
 	 * values are not expected to contain expressions
@@ -64,7 +74,9 @@ public class RequestParamMethodArgumentResolver extends AbstractNamedValueMethod
 	 * is treated as a request parameter even if it isn't annotated, the
 	 * request parameter name is derived from the method parameter name.
 	 */
-	public RequestParamMethodArgumentResolver(ConfigurableBeanFactory beanFactory, boolean useDefaultResolution) {
+	public RequestParamMethodArgumentResolver(ConfigurableBeanFactory beanFactory,
+			boolean useDefaultResolution) {
+
 		super(beanFactory);
 		this.useDefaultResolution = useDefaultResolution;
 	}
@@ -91,13 +103,15 @@ public class RequestParamMethodArgumentResolver extends AbstractNamedValueMethod
 	}
 
 	@Override
-	protected Mono<Object> resolveName(String name, MethodParameter parameter, ServerWebExchange exchange) {
+	protected Optional<Object> resolveNamedValue(String name, MethodParameter parameter,
+			ServerWebExchange exchange) {
+
 		List<String> paramValues = exchange.getRequest().getQueryParams().get(name);
 		Object result = null;
 		if (paramValues != null) {
 			result = (paramValues.size() == 1 ? paramValues.get(0) : paramValues);
 		}
-		return Mono.justOrEmpty(result);
+		return Optional.ofNullable(result);
 	}
 
 	@Override

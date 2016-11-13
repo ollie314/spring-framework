@@ -23,12 +23,14 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import rx.Completable;
 import rx.Single;
 
@@ -40,6 +42,7 @@ import org.springframework.core.io.buffer.support.DataBufferTestUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.EncoderHttpMessageWriter;
 import org.springframework.http.codec.HttpMessageWriter;
@@ -48,8 +51,8 @@ import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.http.codec.xml.Jaxb2XmlEncoder;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.tests.TestSubscriber;
 import org.springframework.util.ObjectUtils;
+import org.springframework.web.reactive.HandlerMapping;
 import org.springframework.web.reactive.HandlerResult;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolver;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolverBuilder;
@@ -64,8 +67,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.springframework.core.ResolvableType.forClassWithGenerics;
-import static org.springframework.http.ResponseEntity.ok;
 import static org.springframework.http.ResponseEntity.notFound;
+import static org.springframework.http.ResponseEntity.ok;
 
 /**
  * Unit tests for {@link ResponseEntityResultHandler}. When adding a test also
@@ -113,7 +116,8 @@ public class ResponseEntityResultHandlerTests {
 	}
 
 
-	@Test @SuppressWarnings("ConstantConditions")
+	@Test
+	@SuppressWarnings("ConstantConditions")
 	public void supports() throws NoSuchMethodException {
 
 		Object value = null;
@@ -201,7 +205,7 @@ public class ResponseEntityResultHandlerTests {
 	@Test
 	public void handleReturnValueLastModified() throws Exception {
 		Instant currentTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-		Instant oneMinAgo  = currentTime.minusSeconds(60);
+		Instant oneMinAgo = currentTime.minusSeconds(60);
 		this.request.getHeaders().setIfModifiedSince(currentTime.toEpochMilli());
 
 		ResponseEntity<String> entity = ok().lastModified(oneMinAgo.toEpochMilli()).body("body");
@@ -241,7 +245,7 @@ public class ResponseEntityResultHandlerTests {
 		this.request.getHeaders().setIfNoneMatch(eTag);
 
 		Instant currentTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-		Instant oneMinAgo  = currentTime.minusSeconds(60);
+		Instant oneMinAgo = currentTime.minusSeconds(60);
 		this.request.getHeaders().setIfModifiedSince(currentTime.toEpochMilli());
 
 		ResponseEntity<String> entity = ok().eTag(eTag).lastModified(oneMinAgo.toEpochMilli()).body("body");
@@ -258,7 +262,7 @@ public class ResponseEntityResultHandlerTests {
 		this.request.getHeaders().setIfNoneMatch(etag);
 
 		Instant currentTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-		Instant oneMinAgo  = currentTime.minusSeconds(60);
+		Instant oneMinAgo = currentTime.minusSeconds(60);
 		this.request.getHeaders().setIfModifiedSince(currentTime.toEpochMilli());
 
 		ResponseEntity<String> entity = ok().eTag(newEtag).lastModified(oneMinAgo.toEpochMilli()).body("body");
@@ -266,6 +270,40 @@ public class ResponseEntityResultHandlerTests {
 		this.resultHandler.handleResult(this.exchange, result).block(Duration.ofSeconds(5));
 
 		assertConditionalResponse(HttpStatus.OK, "body", newEtag, oneMinAgo);
+	}
+
+	@Test // SPR-14877
+	public void handleMonoWithWildcardBodyType() throws Exception {
+
+		this.exchange.getAttributes().put(HandlerMapping.PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE,
+				Collections.singleton(MediaType.APPLICATION_JSON));
+
+		HandlerResult result = new HandlerResult(new TestController(), Mono.just(ok().body("body")),
+				ResolvableMethod.onClass(TestController.class)
+						.name("monoResponseEntityWildcard")
+						.resolveReturnType());
+
+		this.resultHandler.handleResult(this.exchange, result).block(Duration.ofSeconds(5));
+
+		assertEquals(HttpStatus.OK, this.response.getStatusCode());
+		assertResponseBody("\"body\"");
+	}
+
+	@Test // SPR-14877
+	public void handleMonoWithWildcardBodyTypeAndNullBody() throws Exception {
+
+		this.exchange.getAttributes().put(HandlerMapping.PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE,
+				Collections.singleton(MediaType.APPLICATION_JSON));
+
+		HandlerResult result = new HandlerResult(new TestController(), Mono.just(notFound().build()),
+				ResolvableMethod.onClass(TestController.class)
+						.name("monoResponseEntityWildcard")
+						.resolveReturnType());
+
+		this.resultHandler.handleResult(this.exchange, result).block(Duration.ofSeconds(5));
+
+		assertEquals(HttpStatus.NOT_FOUND, this.response.getStatusCode());
+		assertNull(this.response.getBody());
 	}
 
 
@@ -289,12 +327,14 @@ public class ResponseEntityResultHandlerTests {
 	}
 
 	private void assertResponseBody(String responseBody) {
-		TestSubscriber.subscribe(this.response.getBody())
-				.assertValuesWith(buf -> assertEquals(responseBody,
-						DataBufferTestUtils.dumpString(buf, StandardCharsets.UTF_8)));
+		StepVerifier.create(this.response.getBody())
+				.consumeNextWith(buf -> assertEquals(responseBody,
+						DataBufferTestUtils.dumpString(buf, StandardCharsets.UTF_8)))
+				.expectComplete()
+				.verify();
 	}
 
-	private void assertConditionalResponse(HttpStatus status, String body, String etag, Instant lastModified) {
+	private void assertConditionalResponse(HttpStatus status, String body, String etag, Instant lastModified) throws Exception {
 		assertEquals(status, this.response.getStatusCode());
 		if (body != null) {
 			assertResponseBody(body);
@@ -329,6 +369,9 @@ public class ResponseEntityResultHandlerTests {
 		String string() { return null; }
 
 		Completable completable() { return null; }
+
+		Mono<ResponseEntity<?>> monoResponseEntityWildcard() { return null; }
+
 	}
 
 }

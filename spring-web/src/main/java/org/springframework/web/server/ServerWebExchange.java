@@ -25,6 +25,7 @@ import reactor.core.publisher.Mono;
 
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.util.MultiValueMap;
 
 /**
  * Contract for an HTTP request-response interaction. Provides access to the HTTP
@@ -72,7 +73,13 @@ public interface ServerWebExchange {
 	/**
 	 * Return the authenticated user for the request, if any.
 	 */
-	<T extends Principal> Optional<T> getPrincipal();
+	<T extends Principal> Mono<T> getPrincipal();
+
+	/**
+	 * Return the form data from the body of the request or an empty {@code Mono}
+	 * if the Content-Type is not "application/x-www-form-urlencoded".
+	 */
+	Mono<MultiValueMap<String, String>> getFormData();
 
 	/**
 	 * Returns {@code true} if the one of the {@code checkNotModified} methods
@@ -117,5 +124,54 @@ public interface ServerWebExchange {
 	 * @return true if the request does not require further processing.
 	 */
 	boolean checkNotModified(String etag, Instant lastModified);
+
+
+	/**
+	 * Return a builder to mutate properties of this exchange. The resulting
+	 * new exchange is an immutable {@link ServerWebExchangeDecorator decorator}
+	 * around the current exchange instance that returns mutated values, where
+	 * provided, or delegating to the decorated instance otherwise.
+	 */
+	default MutativeBuilder mutate() {
+		return new DefaultServerWebExchangeMutativeBuilder(this);
+	}
+
+
+	/**
+	 * Builder for mutating properties of a {@link ServerWebExchange}.
+	 */
+	interface MutativeBuilder {
+
+		/**
+		 * Set the request to use.
+		 */
+		MutativeBuilder setRequest(ServerHttpRequest request);
+
+		/**
+		 * Set the response to use.
+		 */
+		MutativeBuilder setResponse(ServerHttpResponse response);
+
+		/**
+		 * Set the principal to use.
+		 */
+		MutativeBuilder setPrincipal(Mono<Principal> user);
+
+		/**
+		 * Set the session to use.
+		 */
+		MutativeBuilder setSession(Mono<WebSession> session);
+
+		/**
+		 * Set the form data.
+		 */
+		MutativeBuilder setFormData(Mono<MultiValueMap<String, String>> formData);
+
+		/**
+		 * Build an immutable wrapper that returning the mutated properties.
+		 */
+		ServerWebExchange build();
+
+	}
 
 }
